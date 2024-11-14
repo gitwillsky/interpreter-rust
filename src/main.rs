@@ -21,15 +21,9 @@ fn main() {
                 String::new()
             });
 
-            if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
-            } else {
-                let mut tokenizer = Tokenizer::new(file_contents);
-                let tokens = tokenizer.parse();
-                tokens.iter().for_each(|token| {
-                    println!("{}", token)
-                });
-            }
+            let mut tokenizer = Tokenizer::new(file_contents);
+            let tokens = tokenizer.parse();
+            tokens.iter().for_each(|token| println!("{}", token));
         }
         _ => {
             writeln!(io::stderr(), "Unknown command: {}", command).unwrap();
