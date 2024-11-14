@@ -1,6 +1,8 @@
 use std::fmt;
 
+use log::error;
 
+#[derive(PartialEq)]
 pub enum TokenType {
     Var,
     Identifier,
@@ -17,7 +19,6 @@ pub enum TokenType {
     Comma,
     Plus,
     Minus,
-    Unknown,
 }
 
 impl ToString for TokenType {
@@ -33,7 +34,6 @@ impl ToString for TokenType {
             TokenType::LeftBrace => "LEFT_BRACE",
             TokenType::RightBrace => "RIGHT_BRACE",
             TokenType::Eof => "EOF",
-            TokenType::Unknown => "UNKNOWN",
             TokenType::Star => "STAR",
             TokenType::Dot => "DOT",
             TokenType::Comma => "COMMA",
@@ -73,6 +73,7 @@ impl fmt::Display for Token {
 
 pub struct Tokenizer {
     // TODO use bufReader instead of
+    line: usize,
     source: String,
     offset: usize,
 }
@@ -82,29 +83,42 @@ impl Tokenizer {
         Self {
             source,
             offset: 0,
+            line: 1,
         }
     }
 
-    pub fn parse(&mut self) -> Vec<Token> {
-        let mut tokens = Vec::new();
+    pub fn parse(&mut self) -> (Vec<Token>, i32){
+        let mut tokens = Vec::<Token>::new();
+        let mut exit_code = 0;
         while let Some(c) = self.advance() {
+            // skip new line
+            if matches!(c, '\n') {
+                self.line += 1;
+                continue;
+            }
             let token = match c {
-                '(' => Token::new(TokenType::LeftParen, c.into(), None),
-                ')' => Token::new(TokenType::RightParen, c.into(), None),
-                '{' => Token::new(TokenType::LeftBrace, c.into(), None),
-                '}' => Token::new(TokenType::RightBrace, c.into(), None),
-                '*' => Token::new(TokenType::Star, c.into(), None),
-                '.' => Token::new(TokenType::Dot, c.into(), None),
-                ',' => Token::new(TokenType::Comma, c.into(), None),
-                '+' => Token::new(TokenType::Plus, c.into(), None),
-                '-' => Token::new(TokenType::Minus, c.into(), None),
-                ';' => Token::new(TokenType::Semicolon, c.into(), None),
-                _ => Token::new(TokenType::Unknown, c.into(), None)
+                '(' => Some(Token::new(TokenType::LeftParen, c.into(), None)),
+                ')' => Some(Token::new(TokenType::RightParen, c.into(), None)),
+                '{' => Some(Token::new(TokenType::LeftBrace, c.into(), None)),
+                '}' => Some(Token::new(TokenType::RightBrace, c.into(), None)),
+                '*' => Some(Token::new(TokenType::Star, c.into(), None)),
+                '.' => Some(Token::new(TokenType::Dot, c.into(), None)),
+                ',' => Some(Token::new(TokenType::Comma, c.into(), None)),
+                '+' => Some(Token::new(TokenType::Plus, c.into(), None)),
+                '-' => Some(Token::new(TokenType::Minus, c.into(), None)),
+                ';' => Some(Token::new(TokenType::Semicolon, c.into(), None)),
+                _ => None,
             };
-            tokens.push(token);
+            match token {
+                Some(t) => tokens.push(t),
+                None => {
+                    error!("[line {}] Error: Unexpected character: {}", self.line, c);
+                    exit_code = 65;
+                }
+            }
         }
         tokens.push(Token::new(TokenType::Eof, "".into(), None));
-        tokens
+        (tokens,exit_code)
     }
 
     /// return the next char
