@@ -12,12 +12,16 @@ pub enum TokenType {
     RightParen,
     LeftBrace,
     RightBrace,
-
+    Star,
+    Dot,
+    Comma,
+    Plus,
+    Minus,
     Unknown,
 }
 
-impl TokenType {
-    pub fn as_str(&self) -> &str {
+impl ToString for TokenType {
+    fn to_string(&self) -> String {
         match self {
             TokenType::Var => "VAR",
             TokenType::Identifier => "IDENTIFIER",
@@ -30,7 +34,12 @@ impl TokenType {
             TokenType::RightBrace => "RIGHT_BRACE",
             TokenType::Eof => "EOF",
             TokenType::Unknown => "UNKNOWN",
-        }
+            TokenType::Star => "STAR",
+            TokenType::Dot => "DOT",
+            TokenType::Comma => "COMMA",
+            TokenType::Plus => "PLUS",
+            TokenType::Minus => "MINUS",
+        }.into()
     }
 }
 
@@ -55,7 +64,7 @@ impl fmt::Display for Token {
         write!(
             f,
             "{} {} {}",
-            self.token_type.as_str(),
+            self.token_type.to_string(),
             self.lexeme,
             self.literal.as_ref().unwrap_or(&String::from("null"))
         )
@@ -84,6 +93,12 @@ impl Tokenizer {
                 ')' => Token::new(TokenType::RightParen, c.into(), None),
                 '{' => Token::new(TokenType::LeftBrace, c.into(), None),
                 '}' => Token::new(TokenType::RightBrace, c.into(), None),
+                '*' => Token::new(TokenType::Star, c.into(), None),
+                '.' => Token::new(TokenType::Dot, c.into(), None),
+                ',' => Token::new(TokenType::Comma, c.into(), None),
+                '+' => Token::new(TokenType::Plus, c.into(), None),
+                '-' => Token::new(TokenType::Minus, c.into(), None),
+                ';' => Token::new(TokenType::Semicolon, c.into(), None),
                 _ => Token::new(TokenType::Unknown, c.into(), None)
             };
             tokens.push(token);
