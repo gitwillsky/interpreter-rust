@@ -10,6 +10,8 @@ pub enum TokenType {
     Eof,
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
 
     Unknown,
 }
@@ -24,6 +26,8 @@ impl TokenType {
             TokenType::Semicolon => "SEMICOLON",
             TokenType::LeftParen => "LEFT_PAREN",
             TokenType::RightParen => "RIGHT_PAREN",
+            TokenType::LeftBrace => "LEFT_BRACE",
+            TokenType::RightBrace => "RIGHT_BRACE",
             TokenType::Eof => "EOF",
             TokenType::Unknown => "UNKNOWN",
         }
@@ -61,8 +65,6 @@ impl fmt::Display for Token {
 pub struct Tokenizer {
     // TODO use bufReader instead of
     source: String,
-    current_line: usize,
-    current_column: usize,
     offset: usize,
 }
 
@@ -70,8 +72,6 @@ impl Tokenizer {
     pub fn new(source: String) -> Self {
         Self {
             source,
-            current_line: 1,
-            current_column: 1,
             offset: 0,
         }
     }
@@ -82,6 +82,8 @@ impl Tokenizer {
             let token = match c {
                 '(' => Token::new(TokenType::LeftParen, c.into(), None),
                 ')' => Token::new(TokenType::RightParen, c.into(), None),
+                '{' => Token::new(TokenType::LeftBrace, c.into(), None),
+                '}' => Token::new(TokenType::RightBrace, c.into(), None),
                 _ => Token::new(TokenType::Unknown, c.into(), None)
             };
             tokens.push(token);
@@ -99,14 +101,3 @@ impl Tokenizer {
         c
     }
 }
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-
-//     #[test]
-//     fn test_parse() {
-//         let s = "";
-
-//     }
-// }
