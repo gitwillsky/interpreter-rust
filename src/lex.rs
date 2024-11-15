@@ -28,6 +28,8 @@ pub enum TokenType {
     LessEqual,
     Greater,
     GreaterEqual,
+
+    Slash,
 }
 
 impl ToString for TokenType {
@@ -55,6 +57,7 @@ impl ToString for TokenType {
             TokenType::GreaterEqual => "GREATER_EQUAL",
             TokenType::Less => "LESS",
             TokenType::LessEqual => "LESS_EQUAL",
+            TokenType::Slash=> "SLASH",
         }
         .into()
     }
@@ -153,6 +156,18 @@ impl Tokenizer {
                     }
                     _ => Some(Token::new(TokenType::Greater, c.into(), None)),
                 },
+                '/' => match self.peek() {
+                    Some('/') => {
+                        self.offset += 1;
+                        while let Some(c) = self.advance() {
+                            if c == '\n' {
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+                    _ => Some(Token::new(TokenType::Slash, c.into(), None))
+                }
                 _ => None,
             };
             match token {
@@ -175,6 +190,7 @@ impl Tokenizer {
         }
         c
     }
+
     /// return the next chart without move offset
     fn peek(&self) -> Option<char> {
         self.source.chars().nth(self.offset)
