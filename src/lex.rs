@@ -162,9 +162,10 @@ impl Tokenizer {
                 '/' => match self.peek() {
                     Some('/') => {
                         self.offset += 1;
-                        while let Some(c) = self.advance() {
-                            if c == '\n' {
-                                break;
+                        while let Some(c) = self.peek() {
+                            match c {
+                                '\n' => break,
+                                _ => self.offset += 1,
                             }
                         }
                         continue;
