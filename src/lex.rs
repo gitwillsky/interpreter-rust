@@ -20,8 +20,14 @@ pub enum TokenType {
     Plus,
     Minus,
     EqualEqual,
+
     Bang,
     BangEqual,
+
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 impl ToString for TokenType {
@@ -45,6 +51,10 @@ impl ToString for TokenType {
             TokenType::EqualEqual => "EQUAL_EQUAL",
             TokenType::Bang => "BANG",
             TokenType::BangEqual => "BANG_EQUAL",
+            TokenType::Greater => "GREATER",
+            TokenType::GreaterEqual => "GREATER_EQUAL",
+            TokenType::Less => "LESS",
+            TokenType::LessEqual => "LESS_EQUAL",
         }
         .into()
     }
@@ -114,22 +124,34 @@ impl Tokenizer {
                 '+' => Some(Token::new(TokenType::Plus, c.into(), None)),
                 '-' => Some(Token::new(TokenType::Minus, c.into(), None)),
                 ';' => Some(Token::new(TokenType::Semicolon, c.into(), None)),
-                '=' => {
-                    match self.peek() {
-                        Some('=') => {
-                            // 已经消费了，offset + 1
-                            self.offset += 1;
-                            Some(Token::new(TokenType::EqualEqual, "==".into(), None))
-                        }
-                        _ => Some(Token::new(TokenType::Equal, c.into(), None)),
+                '=' => match self.peek() {
+                    Some('=') => {
+                        // 已经消费了，offset + 1
+                        self.offset += 1;
+                        Some(Token::new(TokenType::EqualEqual, "==".into(), None))
                     }
-                }
+                    _ => Some(Token::new(TokenType::Equal, c.into(), None)),
+                },
                 '!' => match self.peek() {
                     Some('=') => {
                         self.offset += 1;
                         Some(Token::new(TokenType::BangEqual, "!=".into(), None))
                     }
                     _ => Some(Token::new(TokenType::Bang, c.into(), None)),
+                },
+                '<' => match self.peek() {
+                    Some('=') => {
+                        self.offset += 1;
+                        Some(Token::new(TokenType::LessEqual, "<=".into(), None))
+                    }
+                    _ => Some(Token::new(TokenType::Less, c.into(), None)),
+                },
+                '>' => match self.peek() {
+                    Some('=') => {
+                        self.offset += 1;
+                        Some(Token::new(TokenType::GreaterEqual, ">=".into(), None))
+                    }
+                    _ => Some(Token::new(TokenType::Greater, c.into(), None)),
                 },
                 _ => None,
             };
