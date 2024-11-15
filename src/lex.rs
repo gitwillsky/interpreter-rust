@@ -108,12 +108,15 @@ impl Tokenizer {
     }
 
     pub fn parse(&mut self) -> (Vec<Token>, i32) {
-        let mut tokens = Vec::<Token>::new();
+        let mut tokens = Vec::new();
         let mut exit_code = 0;
         while let Some(c) = self.advance() {
             // skip new line
             if matches!(c, '\n') {
                 self.line += 1;
+                continue;
+            }
+            if c.is_whitespace() {
                 continue;
             }
             let token = match c {
