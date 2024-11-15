@@ -19,6 +19,7 @@ pub enum TokenType {
     Comma,
     Plus,
     Minus,
+    EqualEqual
 }
 
 impl ToString for TokenType {
@@ -39,7 +40,9 @@ impl ToString for TokenType {
             TokenType::Comma => "COMMA",
             TokenType::Plus => "PLUS",
             TokenType::Minus => "MINUS",
-        }.into()
+            TokenType::EqualEqual => "EQUAL_EQUAL",
+        }
+        .into()
     }
 }
 
@@ -87,7 +90,7 @@ impl Tokenizer {
         }
     }
 
-    pub fn parse(&mut self) -> (Vec<Token>, i32){
+    pub fn parse(&mut self) -> (Vec<Token>, i32) {
         let mut tokens = Vec::<Token>::new();
         let mut exit_code = 0;
         while let Some(c) = self.advance() {
@@ -107,6 +110,16 @@ impl Tokenizer {
                 '+' => Some(Token::new(TokenType::Plus, c.into(), None)),
                 '-' => Some(Token::new(TokenType::Minus, c.into(), None)),
                 ';' => Some(Token::new(TokenType::Semicolon, c.into(), None)),
+                '=' => {
+                    match self.peek() {
+                      Some('=') => {
+                        // 已经消费了，offset + 1
+                        self.offset +=1;
+                        Some(Token::new(TokenType::EqualEqual, "==".into(), None))
+                      },
+                      _ => Some(Token::new(TokenType::Equal, c.into(), None))
+                    }
+                },
                 _ => None,
             };
             match token {
@@ -118,7 +131,7 @@ impl Tokenizer {
             }
         }
         tokens.push(Token::new(TokenType::Eof, "".into(), None));
-        (tokens,exit_code)
+        (tokens, exit_code)
     }
 
     /// return the next char
@@ -128,5 +141,9 @@ impl Tokenizer {
             self.offset += 1;
         }
         c
+    }
+    /// return the next chart without move offset
+    fn peek(&self) -> Option<char> {
+        self.source.chars().nth(self.offset)
     }
 }
