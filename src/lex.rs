@@ -4,32 +4,38 @@ use log::error;
 
 #[derive(PartialEq)]
 pub enum TokenType {
-    Var,
-    Identifier,
-    Equal,
-    String,
-    Semicolon,
-    Eof,
+    // Single character tokens
     LeftParen,
     RightParen,
     LeftBrace,
     RightBrace,
-    Star,
-    Dot,
     Comma,
-    Plus,
+    Dot,
     Minus,
-    EqualEqual,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
 
+    // one or two tokens
     Bang,
     BangEqual,
-
-    Less,
-    LessEqual,
+    Equal,
+    EqualEqual,
     Greater,
     GreaterEqual,
+    Less,
+    LessEqual,
 
-    Slash,
+    // Literals
+    Identifier,
+    String,
+    Number,
+
+    // keywords
+    Var,
+
+    Eof,
 }
 
 impl ToString for TokenType {
@@ -57,7 +63,8 @@ impl ToString for TokenType {
             TokenType::GreaterEqual => "GREATER_EQUAL",
             TokenType::Less => "LESS",
             TokenType::LessEqual => "LESS_EQUAL",
-            TokenType::Slash=> "SLASH",
+            TokenType::Slash => "SLASH",
+            TokenType::Number => "NUMBER",
         }
         .into()
     }
@@ -170,14 +177,39 @@ impl Tokenizer {
                         }
                         continue;
                     }
-                    _ => Some(Token::new(TokenType::Slash, c.into(), None))
+                    _ => Some(Token::new(TokenType::Slash, c.into(), None)),
+                },
+                '"' => {
+                    let mut has_terminated = false;
+                    let mut literal = String::new();
+                    while let Some(c) = self.advance() {
+                        match c {
+                            '"' => {
+                                has_terminated = true;
+                                break;
+                            }
+                            _ => literal.push(c),
+                        }
+                    }
+                    if !has_terminated {
+                        error!("[line {}] Error: Unterminated string.", self.line);
+                        None
+                    } else {
+                        Some(Token::new(
+                            TokenType::String,
+                            format!("\"{}\"", literal),
+                            Some(literal),
+                        ))
+                    }
                 }
-                _ => None,
+                _ => {
+                    error!("[line {}] Error: Unexpected character: {}", self.line, c);
+                    None
+                }
             };
             match token {
                 Some(t) => tokens.push(t),
                 None => {
-                    error!("[line {}] Error: Unexpected character: {}", self.line, c);
                     exit_code = 65;
                 }
             }
