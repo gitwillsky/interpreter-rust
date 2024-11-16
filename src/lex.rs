@@ -254,6 +254,17 @@ impl Tokenizer {
                         Some(Literal::Number(literal.parse::<f64>().unwrap())),
                     ))
                 }
+                'a'..='z' | 'A'..='Z' | '_' => {
+                    while let Some(c) = self.peek() {
+                        if !matches!(c, 'a'..='z' | 'A'..='Z' | '_' | '0'..='9') {
+                            break;
+                        } else {
+                            self.current += 1;
+                        }
+                    }
+                    let literal: String = self.source[self.start..self.current].iter().collect();
+                    Some(Token::new(TokenType::Identifier, literal, None))
+                }
                 _ => {
                     error!(
                         "[line {}] Error: Unexpected character: {}",
