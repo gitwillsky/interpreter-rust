@@ -34,6 +34,21 @@ pub enum TokenType {
 
     // keywords
     Var,
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    While,
 
     Eof,
 }
@@ -65,6 +80,21 @@ impl ToString for TokenType {
             TokenType::LessEqual => "LESS_EQUAL",
             TokenType::Slash => "SLASH",
             TokenType::Number => "NUMBER",
+            TokenType::And => "AND",
+            TokenType::Class => "CLASS",
+            TokenType::Else => "ELSE",
+            TokenType::False => "FALSE",
+            TokenType::For => "FOR",
+            TokenType::Fun => "FUN",
+            TokenType::If => "IF",
+            TokenType::Nil => "NIL",
+            TokenType::Or => "OR",
+            TokenType::Print => "PRINT",
+            TokenType::Return => "RETURN",
+            TokenType::Super => "SUPER",
+            TokenType::This => "THIS",
+            TokenType::True => "TRUE",
+            TokenType::While => "WHILE",
         }
         .into()
     }
@@ -107,6 +137,29 @@ impl Token {
             lexeme,
             literal,
         }
+    }
+
+    fn from_str(s: &str) -> Option<Token> {
+        let token_type = match s {
+            "and" => Some(TokenType::And),
+            "class" => Some(TokenType::Class),
+            "else" => Some(TokenType::Else),
+            "false" => Some(TokenType::False),
+            "for" => Some(TokenType::For),
+            "fun" => Some(TokenType::Fun),
+            "if" => Some(TokenType::If),
+            "nil" => Some(TokenType::Nil),
+            "or" => Some(TokenType::Or),
+            "print" => Some(TokenType::Print),
+            "return" => Some(TokenType::Return),
+            "super" => Some(TokenType::Super),
+            "this" => Some(TokenType::This),
+            "true" => Some(TokenType::True),
+            "var" => Some(TokenType::Var),
+            "while" => Some(TokenType::While),
+            _ => None,
+        };
+        token_type.map_or(None, |t| Some(Token::new(t, s.to_string(), None)))
     }
 }
 
@@ -263,7 +316,11 @@ impl Tokenizer {
                         }
                     }
                     let literal: String = self.source[self.start..self.current].iter().collect();
-                    Some(Token::new(TokenType::Identifier, literal, None))
+                    if let Some(keyword) = Token::from_str(&literal) {
+                        Some(keyword)
+                    } else {
+                        Some(Token::new(TokenType::Identifier, literal, None))
+                    }
                 }
                 _ => {
                     error!(
