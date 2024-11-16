@@ -73,11 +73,35 @@ impl ToString for TokenType {
 pub struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<String>,
+    literal: Option<Literal>,
+}
+
+pub enum Literal {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+    Nil,
+}
+
+impl ToString for Literal {
+    fn to_string(&self) -> String {
+        match self {
+            Literal::String(s) => s.clone(),
+            Literal::Number(n) => {
+                if n.fract() == 0.0 {
+                    format!("{:.1}", n)
+                } else {
+                    n.to_string()
+                }
+            }
+            Literal::Boolean(b) => b.to_string(),
+            Literal::Nil => "null".into(),
+        }
+    }
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: Option<String>) -> Self {
+    pub fn new(token_type: TokenType, lexeme: String, literal: Option<Literal>) -> Self {
         Self {
             token_type,
             lexeme,
@@ -93,24 +117,25 @@ impl fmt::Display for Token {
             "{} {} {}",
             self.token_type.to_string(),
             self.lexeme,
-            self.literal.as_ref().unwrap_or(&String::from("null"))
+            self.literal.as_ref().unwrap_or(&Literal::Nil).to_string(),
         )
     }
 }
 
 pub struct Tokenizer {
-    // TODO use bufReader instead of
-    line: usize,
-    source: String,
-    offset: usize,
+    line_number: usize,
+    source: Vec<char>,
+    start: usize,
+    current: usize,
 }
 
 impl Tokenizer {
     pub fn new(source: String) -> Self {
         Self {
-            source,
-            offset: 0,
-            line: 1,
+            source: source.chars().collect(),
+            start: 0,
+            current: 0,
+            line_number: 1,
         }
     }
 
@@ -120,10 +145,12 @@ impl Tokenizer {
         while let Some(c) = self.advance() {
             // skip new line
             if matches!(c, '\n') {
-                self.line += 1;
+                self.line_number += 1;
+                self.start = self.current;
                 continue;
             }
             if c.is_whitespace() {
+                self.start = self.current;
                 continue;
             }
             let token = match c {
@@ -140,39 +167,39 @@ impl Tokenizer {
                 '=' => match self.peek() {
                     Some('=') => {
                         // 已经消费了，offset + 1
-                        self.offset += 1;
+                        self.current += 1;
                         Some(Token::new(TokenType::EqualEqual, "==".into(), None))
                     }
                     _ => Some(Token::new(TokenType::Equal, c.into(), None)),
                 },
                 '!' => match self.peek() {
                     Some('=') => {
-                        self.offset += 1;
+                        self.current += 1;
                         Some(Token::new(TokenType::BangEqual, "!=".into(), None))
                     }
                     _ => Some(Token::new(TokenType::Bang, c.into(), None)),
                 },
                 '<' => match self.peek() {
                     Some('=') => {
-                        self.offset += 1;
+                        self.current += 1;
                         Some(Token::new(TokenType::LessEqual, "<=".into(), None))
                     }
                     _ => Some(Token::new(TokenType::Less, c.into(), None)),
                 },
                 '>' => match self.peek() {
                     Some('=') => {
-                        self.offset += 1;
+                        self.current += 1;
                         Some(Token::new(TokenType::GreaterEqual, ">=".into(), None))
                     }
                     _ => Some(Token::new(TokenType::Greater, c.into(), None)),
                 },
                 '/' => match self.peek() {
                     Some('/') => {
-                        self.offset += 1;
+                        self.current += 1;
                         while let Some(c) = self.peek() {
                             match c {
                                 '\n' => break,
-                                _ => self.offset += 1,
+                                _ => self.current += 1,
                             }
                         }
                         continue;
@@ -181,29 +208,57 @@ impl Tokenizer {
                 },
                 '"' => {
                     let mut has_terminated = false;
-                    let mut literal = String::new();
                     while let Some(c) = self.advance() {
-                        match c {
-                            '"' => {
-                                has_terminated = true;
-                                break;
-                            }
-                            _ => literal.push(c),
+                        if c == '"' {
+                            has_terminated = true;
+                            break;
                         }
                     }
                     if !has_terminated {
-                        error!("[line {}] Error: Unterminated string.", self.line);
+                        error!("[line {}] Error: Unterminated string.", self.line_number);
                         None
                     } else {
+                        // ignore double quote
+                        let literal: String = self.source[self.start + 1..self.current - 1]
+                            .iter()
+                            .collect();
                         Some(Token::new(
                             TokenType::String,
                             format!("\"{}\"", literal),
-                            Some(literal),
+                            Some(Literal::String(literal)),
                         ))
                     }
                 }
+                '0'..='9' => {
+                    while let Some(c) = self.peek() {
+                        match c {
+                            '0'..='9' => {
+                                self.current += 1;
+                            }
+                            '.' => {
+                                if let Some(c) = self.peek_next() {
+                                    if c.is_ascii_digit() {
+                                        self.current += 2;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+                    let literal: String = self.source[self.start..self.current].iter().collect();
+                    Some(Token::new(
+                        TokenType::Number,
+                        literal.clone(),
+                        Some(Literal::Number(literal.parse::<f64>().unwrap())),
+                    ))
+                }
                 _ => {
-                    error!("[line {}] Error: Unexpected character: {}", self.line, c);
+                    error!(
+                        "[line {}] Error: Unexpected character: {}",
+                        self.line_number, c
+                    );
                     None
                 }
             };
@@ -213,22 +268,43 @@ impl Tokenizer {
                     exit_code = 65;
                 }
             }
+            // update start
+            self.start = self.current;
         }
         tokens.push(Token::new(TokenType::Eof, "".into(), None));
         (tokens, exit_code)
     }
 
-    /// return the next char
-    fn advance(&mut self) -> Option<char> {
-        let c = self.source.chars().nth(self.offset);
-        if c.is_some() {
-            self.offset += 1;
-        }
-        c
+    fn is_at_end(&self) -> bool {
+        self.current >= self.source.len()
     }
 
-    /// return the next chart without move offset
+    /// return the next char
+    fn advance(&mut self) -> Option<char> {
+        if self.is_at_end() {
+            return None;
+        }
+
+        let c = self.source[self.current];
+        self.current += 1;
+        Some(c)
+    }
+
+    /// return the next chart without move current
     fn peek(&self) -> Option<char> {
-        self.source.chars().nth(self.offset)
+        if self.is_at_end() {
+            return None;
+        }
+        Some(self.source[self.current])
+    }
+
+    /// return the next next char without move current
+    fn peek_next(&self) -> Option<char> {
+        let next_index = self.current + 1;
+        if next_index >= self.source.len() {
+            None
+        } else {
+            Some(self.source[next_index])
+        }
     }
 }
