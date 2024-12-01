@@ -157,7 +157,12 @@ impl StmtVisitor for Interpreter {
 
     fn visit_print(&self, stmt: &Print) -> Result<()> {
         let value = self.evaluate(stmt.expression.as_ref())?;
-        println!("{value:?}");
+        match value {
+            Literal::Nil => println!("nil"),
+            Literal::String(s) => println!("{s}"),
+            Literal::Number(n) => println!("{n}"),
+            Literal::Boolean(b) => println!("{b}"),
+        }
         Ok(())
     }
 }
