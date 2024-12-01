@@ -64,7 +64,14 @@ fn main() {
             match expression {
                 Ok(expr) => {
                     let interpreter = Interpreter::new();
-                    interpreter.interpret(&expr);
+                    let result = interpreter.interpret(&expr);
+                    match result {
+                        Ok(result) => println!("{}", result),
+                        Err(e) => {
+                            error!("{}", e);
+                            exit(70);
+                        }
+                    }
                 }
                 Err(e) => {
                     error!("{}", e);
