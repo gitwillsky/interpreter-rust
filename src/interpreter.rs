@@ -66,7 +66,7 @@ impl ExprVisitor for Interpreter {
                 (Literal::Number(left), Literal::Number(right)) => Literal::Boolean(left <= right),
                 _ => todo!(),
             },
-            TokenType::Equal => Literal::Boolean(left.is_equal(&right)),
+            TokenType::EqualEqual => Literal::Boolean(left.is_equal(&right)),
             _ => todo!(),
         }
     }
