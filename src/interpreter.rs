@@ -2,6 +2,7 @@ use crate::{
     expr::{Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral, Unary},
     lex::{Literal, TokenType},
 };
+use anyhow::{bail, Result};
 
 pub struct Interpreter {}
 
@@ -10,64 +11,82 @@ impl Interpreter {
         Self {}
     }
 
-    fn evaluate(&self, expr: &ExprEnum) -> Literal {
+    fn evaluate(&self, expr: &ExprEnum) -> Result<Literal> {
         expr.accept(self)
     }
 
-    pub fn interpret(&self, expr: &ExprEnum) {
-        let value = self.evaluate(expr);
+    pub fn interpret(&self, expr: &ExprEnum) -> Result<String> {
+        let value = self.evaluate(expr)?;
         match value {
-            Literal::Nil => println!("nil"),
-            Literal::String(s) => println!("{s}"),
-            Literal::Number(n) => println!("{n}"),
-            Literal::Boolean(b) => println!("{b}"),
+            Literal::Nil => Ok("nil".to_string()),
+            Literal::String(s) => Ok(s),
+            Literal::Number(n) => Ok(n.to_string()),
+            Literal::Boolean(b) => Ok(b.to_string()),
         }
     }
 }
 
 impl ExprVisitor for Interpreter {
-    type Output = Literal;
+    type Output = Result<Literal>;
 
     fn visit_binary(&self, expr: &Binary) -> Self::Output {
-        let right = self.evaluate(expr.right.as_ref());
-        let left = self.evaluate(expr.left.as_ref());
+        let right = self.evaluate(expr.right.as_ref())?;
+        let left = self.evaluate(expr.left.as_ref())?;
 
         match expr.operator.token_type {
             TokenType::Plus => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Number(left + right),
-                (Literal::String(left), Literal::String(right)) => Literal::String(left + &right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Number(left + right))
+                }
+                (Literal::String(left), Literal::String(right)) => {
+                    Ok(Literal::String(left + &right))
+                }
                 _ => todo!(),
             },
             TokenType::Minus => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Number(left - right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Number(left - right))
+                }
                 _ => todo!(),
             },
             TokenType::Slash => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Number(left / right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Number(left / right))
+                }
                 _ => todo!(),
             },
             TokenType::Star => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Number(left * right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Number(left * right))
+                }
                 _ => todo!(),
             },
             TokenType::Greater => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Boolean(left > right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Boolean(left > right))
+                }
                 _ => todo!(),
             },
             TokenType::GreaterEqual => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Boolean(left >= right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Boolean(left >= right))
+                }
                 _ => todo!(),
             },
             TokenType::Less => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Boolean(left < right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Boolean(left < right))
+                }
                 _ => todo!(),
             },
             TokenType::LessEqual => match (left, right) {
-                (Literal::Number(left), Literal::Number(right)) => Literal::Boolean(left <= right),
+                (Literal::Number(left), Literal::Number(right)) => {
+                    Ok(Literal::Boolean(left <= right))
+                }
                 _ => todo!(),
             },
-            TokenType::EqualEqual => Literal::Boolean(left.is_equal(&right)),
-            TokenType::BangEqual => Literal::Boolean(!left.is_equal(&right)),
+            TokenType::EqualEqual => Ok(Literal::Boolean(left.is_equal(&right))),
+            TokenType::BangEqual => Ok(Literal::Boolean(!left.is_equal(&right))),
             _ => todo!(),
         }
     }
@@ -77,19 +96,19 @@ impl ExprVisitor for Interpreter {
     }
 
     fn visit_literal(&self, expr: &ExprLiteral) -> Self::Output {
-        expr.value.clone()
+        Ok(expr.value.clone())
     }
 
     fn visit_unary(&self, expr: &Unary) -> Self::Output {
-        let right = self.evaluate(expr.right.as_ref());
+        let right = self.evaluate(expr.right.as_ref())?;
 
         match expr.operator.token_type {
             TokenType::Minus => match right {
-                Literal::Number(d) => Literal::Number(-d),
-                _ => todo!(),
+                Literal::Number(d) => Ok(Literal::Number(-d)),
+                _ => bail!("Operand must be a number."),
             },
-            TokenType::Bang => Literal::Boolean(!right.is_truthy()),
-            _ => todo!(),
+            TokenType::Bang => Ok(Literal::Boolean(!right.is_truthy())),
+            _ => bail!("Unknown operator."),
         }
     }
 }
