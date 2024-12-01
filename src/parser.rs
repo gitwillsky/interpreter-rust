@@ -133,7 +133,7 @@ impl Parser {
         Ok(StmtEnum::Expression(Expression::new(Box::new(expr))))
     }
 
-    fn expression(&mut self) -> Result<ExprEnum> {
+    pub fn expression(&mut self) -> Result<ExprEnum> {
         self.equality()
     }
 

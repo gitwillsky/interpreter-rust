@@ -12,6 +12,7 @@ impl Interpreter {
     pub fn new() -> Self {
         Self {}
     }
+
     pub fn interpret(&self, statements: &[StmtEnum]) -> Result<()> {
         for stmt in statements {
             self.execute(stmt)?;
@@ -19,7 +20,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate(&self, expr: &ExprEnum) -> Result<Literal> {
+    pub fn evaluate(&self, expr: &ExprEnum) -> Result<Literal> {
         expr.accept(self)
     }
 

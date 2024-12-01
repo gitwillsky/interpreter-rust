@@ -5,7 +5,7 @@ use std::process::exit;
 
 use codecrafters_interpreter::ast_printer::AstPrinter;
 use codecrafters_interpreter::interpreter::Interpreter;
-use codecrafters_interpreter::lex::Tokenizer;
+use codecrafters_interpreter::lex::{Literal as LexLiteral, Tokenizer};
 use codecrafters_interpreter::parser::Parser;
 use log::error;
 
@@ -41,7 +41,7 @@ fn main() {
                 exit(exit_code);
             }
             let mut parser = Parser::new(tokens);
-            let expression = parser.parse();
+            let expression = parser.expression();
             match expression {
                 Ok(expr) => {
                     let ast_printer = AstPrinter::new();
@@ -60,13 +60,18 @@ fn main() {
                 exit(exit_code);
             }
             let mut parser = Parser::new(tokens);
-            let expression = parser.parse();
+            let expression = parser.expression();
             match expression {
                 Ok(expr) => {
                     let interpreter = Interpreter::new();
-                    let result = interpreter.interpret(&expr);
+                    let result = interpreter.evaluate(&expr);
                     match result {
-                        Ok(result) => println!("{}", result),
+                        Ok(result) => match result {
+                            LexLiteral::Nil => println!("nil"),
+                            LexLiteral::String(s) => println!("{}", s),
+                            LexLiteral::Number(n) => println!("{}", n),
+                            LexLiteral::Boolean(b) => println!("{}", b),
+                        },
                         Err(e) => {
                             error!("{}", e);
                             exit(70);
