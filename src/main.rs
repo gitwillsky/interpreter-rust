@@ -40,11 +40,21 @@ fn main() {
             });
             let mut tokenizer = Tokenizer::new(file_contents);
             let (tokens, exit_code) = tokenizer.parse();
+            if exit_code != 0 {
+                exit(exit_code);
+            }
             let mut parser = Parser::new(tokens);
             let expression = parser.parse();
-            let ast_printer = AstPrinter::new();
-            println!("{}", ast_printer.print(&expression.unwrap()));
-            exit(exit_code);
+            match expression {
+                Ok(expr) => {
+                    let ast_printer = AstPrinter::new();
+                    println!("{}", ast_printer.print(&expr));
+                }
+                Err(e) => {
+                    error!("{}", e);
+                    exit(65);
+                }
+            }
         }
         _ => {
             error!("Unknown command: {}", command);
