@@ -4,3 +4,4 @@ pub mod expr;
 pub mod interpreter;
 pub mod lex;
 pub mod parser;
+pub mod stmt;

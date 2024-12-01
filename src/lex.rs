@@ -105,6 +105,7 @@ pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub literal: Option<Literal>,
+    pub line_number: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -161,11 +162,17 @@ impl Literal {
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: Option<Literal>) -> Self {
+    pub fn new(
+        token_type: TokenType,
+        lexeme: String,
+        literal: Option<Literal>,
+        line_number: usize,
+    ) -> Self {
         Self {
             token_type,
             lexeme,
             literal,
+            line_number,
         }
     }
 
@@ -189,7 +196,7 @@ impl Token {
             "while" => Some(TokenType::While),
             _ => None,
         };
-        token_type.map_or(None, |t| Some(Token::new(t, s.to_string(), None)))
+        token_type.map_or(None, |t| Some(Token::new(t, s.to_string(), None, 0)))
     }
 }
 
@@ -238,44 +245,129 @@ impl Tokenizer {
                 continue;
             }
             let token = match c {
-                '(' => Some(Token::new(TokenType::LeftParen, c.into(), None)),
-                ')' => Some(Token::new(TokenType::RightParen, c.into(), None)),
-                '{' => Some(Token::new(TokenType::LeftBrace, c.into(), None)),
-                '}' => Some(Token::new(TokenType::RightBrace, c.into(), None)),
-                '*' => Some(Token::new(TokenType::Star, c.into(), None)),
-                '.' => Some(Token::new(TokenType::Dot, c.into(), None)),
-                ',' => Some(Token::new(TokenType::Comma, c.into(), None)),
-                '+' => Some(Token::new(TokenType::Plus, c.into(), None)),
-                '-' => Some(Token::new(TokenType::Minus, c.into(), None)),
-                ';' => Some(Token::new(TokenType::Semicolon, c.into(), None)),
+                '(' => Some(Token::new(
+                    TokenType::LeftParen,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                ')' => Some(Token::new(
+                    TokenType::RightParen,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                '{' => Some(Token::new(
+                    TokenType::LeftBrace,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                '}' => Some(Token::new(
+                    TokenType::RightBrace,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                '*' => Some(Token::new(
+                    TokenType::Star,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                '.' => Some(Token::new(TokenType::Dot, c.into(), None, self.line_number)),
+                ',' => Some(Token::new(
+                    TokenType::Comma,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                '+' => Some(Token::new(
+                    TokenType::Plus,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                '-' => Some(Token::new(
+                    TokenType::Minus,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
+                ';' => Some(Token::new(
+                    TokenType::Semicolon,
+                    c.into(),
+                    None,
+                    self.line_number,
+                )),
                 '=' => match self.peek() {
                     Some('=') => {
                         // 已经消费了，offset + 1
                         self.current += 1;
-                        Some(Token::new(TokenType::EqualEqual, "==".into(), None))
+                        Some(Token::new(
+                            TokenType::EqualEqual,
+                            "==".into(),
+                            None,
+                            self.line_number,
+                        ))
                     }
-                    _ => Some(Token::new(TokenType::Equal, c.into(), None)),
+                    _ => Some(Token::new(
+                        TokenType::Equal,
+                        c.into(),
+                        None,
+                        self.line_number,
+                    )),
                 },
                 '!' => match self.peek() {
                     Some('=') => {
                         self.current += 1;
-                        Some(Token::new(TokenType::BangEqual, "!=".into(), None))
+                        Some(Token::new(
+                            TokenType::BangEqual,
+                            "!=".into(),
+                            None,
+                            self.line_number,
+                        ))
                     }
-                    _ => Some(Token::new(TokenType::Bang, c.into(), None)),
+                    _ => Some(Token::new(
+                        TokenType::Bang,
+                        c.into(),
+                        None,
+                        self.line_number,
+                    )),
                 },
                 '<' => match self.peek() {
                     Some('=') => {
                         self.current += 1;
-                        Some(Token::new(TokenType::LessEqual, "<=".into(), None))
+                        Some(Token::new(
+                            TokenType::LessEqual,
+                            "<=".into(),
+                            None,
+                            self.line_number,
+                        ))
                     }
-                    _ => Some(Token::new(TokenType::Less, c.into(), None)),
+                    _ => Some(Token::new(
+                        TokenType::Less,
+                        c.into(),
+                        None,
+                        self.line_number,
+                    )),
                 },
                 '>' => match self.peek() {
                     Some('=') => {
                         self.current += 1;
-                        Some(Token::new(TokenType::GreaterEqual, ">=".into(), None))
+                        Some(Token::new(
+                            TokenType::GreaterEqual,
+                            ">=".into(),
+                            None,
+                            self.line_number,
+                        ))
                     }
-                    _ => Some(Token::new(TokenType::Greater, c.into(), None)),
+                    _ => Some(Token::new(
+                        TokenType::Greater,
+                        c.into(),
+                        None,
+                        self.line_number,
+                    )),
                 },
                 '/' => match self.peek() {
                     Some('/') => {
@@ -288,7 +380,12 @@ impl Tokenizer {
                         }
                         continue;
                     }
-                    _ => Some(Token::new(TokenType::Slash, c.into(), None)),
+                    _ => Some(Token::new(
+                        TokenType::Slash,
+                        c.into(),
+                        None,
+                        self.line_number,
+                    )),
                 },
                 '"' => {
                     let mut has_terminated = false;
@@ -318,6 +415,7 @@ impl Tokenizer {
                             TokenType::String,
                             format!("\"{}\"", literal),
                             Some(Literal::String(literal)),
+                            self.line_number,
                         ))
                     }
                 }
@@ -344,6 +442,7 @@ impl Tokenizer {
                         TokenType::Number,
                         literal.clone(),
                         Some(Literal::Number(literal.parse::<f64>().unwrap())),
+                        self.line_number,
                     ))
                 }
                 'a'..='z' | 'A'..='Z' | '_' => {
@@ -358,7 +457,12 @@ impl Tokenizer {
                     if let Some(keyword) = Token::from_str(&literal) {
                         Some(keyword)
                     } else {
-                        Some(Token::new(TokenType::Identifier, literal, None))
+                        Some(Token::new(
+                            TokenType::Identifier,
+                            literal,
+                            None,
+                            self.line_number,
+                        ))
                     }
                 }
                 _ => {
@@ -378,7 +482,12 @@ impl Tokenizer {
             // update start
             self.start = self.current;
         }
-        tokens.push(Token::new(TokenType::Eof, "".into(), None));
+        tokens.push(Token::new(
+            TokenType::Eof,
+            "".into(),
+            None,
+            self.line_number,
+        ));
         (tokens, exit_code)
     }
 

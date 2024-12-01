@@ -2,6 +2,7 @@ use crate::{
     error::RuntimeError,
     expr::{Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary},
     lex::{Literal, Token, TokenType},
+    stmt::{Expression, Print, StmtEnum},
 };
 
 use anyhow::{bail, Result};
@@ -56,7 +57,10 @@ impl Parser {
         if self.check_token(token_type) {
             Ok(self.advance())
         } else {
-            bail!(RuntimeError::ParseError(message.into()))
+            bail!(RuntimeError::ParseError(
+                self.peek().clone(),
+                message.into(),
+            ))
         }
     }
     #[allow(dead_code)]
@@ -86,7 +90,11 @@ impl Parser {
 }
 
 /**
- * expression     → equality ;
+ * program        → statement* EOF ;
+ * statement      → expr_stmt | print_stmt ;
+ * expr_stmt      → expression ";";
+ * print_stmt     → "print" expression ";";
+ * expression     → equality;
  * equality       → comparison ( ( "!=" | "==" ) comparison )* ;
  * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           → factor ( ( "-" | "+" ) factor )* ;
@@ -95,8 +103,34 @@ impl Parser {
  * primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
  */
 impl Parser {
-    pub fn parse(&mut self) -> Result<ExprEnum> {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<StmtEnum>> {
+        let mut statements = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+
+        Ok(statements)
+    }
+
+    fn statement(&mut self) -> Result<StmtEnum> {
+        if self.match_token(TokenType::Print) {
+            self.print_stmt()
+        } else {
+            self.expr_stmt()
+        }
+    }
+
+    fn print_stmt(&mut self) -> Result<StmtEnum> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after value.")?;
+        Ok(StmtEnum::Print(Print::new(Box::new(expr))))
+    }
+
+    fn expr_stmt(&mut self) -> Result<StmtEnum> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
+        Ok(StmtEnum::Expression(Expression::new(Box::new(expr))))
     }
 
     fn expression(&mut self) -> Result<ExprEnum> {
@@ -200,10 +234,10 @@ impl Parser {
                 let expr = ExprEnum::Grouping(Grouping::new(Box::new(expr?)));
                 Ok(expr)
             }
-            _ => bail!(RuntimeError::ParseError(format!(
-                "Expected expression, got {}",
-                token.lexeme
-            ))),
+            _ => bail!(RuntimeError::ParseError(
+                token.clone(),
+                format!("Expected expression, got {}", token.lexeme),
+            )),
         }
     }
 }

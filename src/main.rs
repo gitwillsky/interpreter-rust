@@ -79,6 +79,31 @@ fn main() {
                 }
             }
         }
+        "run" => {
+            let mut tokenizer = Tokenizer::new(file_contents);
+            let (tokens, exit_code) = tokenizer.parse();
+            if exit_code != 0 {
+                exit(exit_code);
+            }
+            let mut parser = Parser::new(tokens);
+            let statements = parser.parse();
+            match statements {
+                Ok(statements) => {
+                    let interpreter = Interpreter::new();
+                    match interpreter.interpret(&statements) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            error!("{}", e);
+                            exit(70);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("{}", e);
+                    exit(65);
+                }
+            }
+        }
         _ => {
             error!("Unknown command: {}", command);
             return;

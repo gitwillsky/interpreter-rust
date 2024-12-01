@@ -1,7 +1,9 @@
 use thiserror::Error;
 
+use crate::lex::Token;
+
 #[derive(Debug, Error)]
 pub enum RuntimeError {
-    #[error("Parse error: {0}")]
-    ParseError(String),
+    #[error("{1}\n[line {num}]", num = .0.line_number)]
+    ParseError(Token, String),
 }
