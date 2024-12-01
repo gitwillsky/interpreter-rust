@@ -16,10 +16,11 @@ impl Interpreter {
 
     pub fn interpret(&self, expr: &ExprEnum) {
         let value = self.evaluate(expr);
-        if let Literal::Nil = value {
-            println!("nil");
-        } else {
-            println!("{}", value.to_string());
+        match value {
+            Literal::Nil => println!("nil"),
+            Literal::String(s) => println!("{s}"),
+            Literal::Number(n) => println!("{n}"),
+            Literal::Boolean(b) => println!("{b}"),
         }
     }
 }

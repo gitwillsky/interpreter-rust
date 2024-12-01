@@ -15,10 +15,9 @@ impl ExprVisitor for AstPrinter {
     }
 
     fn visit_literal(&self, expr: &Literal) -> Self::Output {
-        if let LexLiteral::Nil = expr.value {
-            "nil".to_string()
-        } else {
-            expr.value.to_string()
+        match &expr.value {
+            LexLiteral::Nil => "nil".to_string(),
+            _ => expr.value.to_string(),
         }
     }
 
