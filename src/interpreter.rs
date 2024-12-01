@@ -67,6 +67,7 @@ impl ExprVisitor for Interpreter {
                 _ => todo!(),
             },
             TokenType::EqualEqual => Literal::Boolean(left.is_equal(&right)),
+            TokenType::BangEqual => Literal::Boolean(!left.is_equal(&right)),
             _ => todo!(),
         }
     }
