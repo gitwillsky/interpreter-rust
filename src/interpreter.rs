@@ -53,13 +53,13 @@ impl ExprVisitor for Interpreter {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Number(left / right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be a number."),
             },
             TokenType::Star => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Number(left * right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be a number."),
             },
             TokenType::Greater => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
