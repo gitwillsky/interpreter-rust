@@ -18,7 +18,14 @@ impl ExprVisitor for AstPrinter {
         match &expr.value {
             LexLiteral::Nil => "nil".into(),
             LexLiteral::String(s) => s.clone(),
-            LexLiteral::Number(n) => n.to_string(),
+            LexLiteral::Number(n) => {
+                let s = n.to_string();
+                if s.contains('.') {
+                    s
+                } else {
+                    s + ".0"
+                }
+            }
             LexLiteral::Boolean(b) => b.to_string(),
         }
     }
