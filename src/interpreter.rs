@@ -41,13 +41,13 @@ impl ExprVisitor for Interpreter {
                 (Literal::String(left), Literal::String(right)) => {
                     Ok(Literal::String(left + &right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be two numbers or two strings."),
             },
             TokenType::Minus => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Number(left - right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be a numbers."),
             },
             TokenType::Slash => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
