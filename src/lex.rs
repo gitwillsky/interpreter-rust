@@ -2,7 +2,7 @@ use std::fmt;
 
 use log::error;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
     // Single character tokens
     LeftParen,
@@ -100,12 +100,14 @@ impl ToString for TokenType {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<Literal>,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: Option<Literal>,
 }
 
+#[derive(Clone, Debug)]
 pub enum Literal {
     String(String),
     Number(f64),
@@ -126,6 +128,34 @@ impl ToString for Literal {
             }
             Literal::Boolean(b) => b.to_string(),
             Literal::Nil => "null".into(),
+        }
+    }
+}
+
+impl Literal {
+    pub fn as_number(&self) -> Option<f64> {
+        if let Self::Number(d) = self {
+            Some(*d)
+        } else {
+            None
+        }
+    }
+    pub fn is_truthy(&self) -> bool {
+        // lox 遵循 ruby false 和 nil 是假，其他都是真
+        match self {
+            Literal::String(_) => true,
+            Literal::Number(_) => true,
+            Literal::Boolean(f) => *f,
+            Literal::Nil => false,
+        }
+    }
+    pub fn is_equal(&self, b: &Literal) -> bool {
+        match (self, b) {
+            (Literal::String(a), Literal::String(b)) => a == b,
+            (Literal::Number(a), Literal::Number(b)) => a == b,
+            (Literal::Boolean(a), Literal::Boolean(b)) => a == b,
+            (Literal::Nil, Literal::Nil) => true,
+            _ => false,
         }
     }
 }
@@ -202,7 +232,8 @@ impl Tokenizer {
                 self.start = self.current;
                 continue;
             }
-            if c.is_whitespace() {
+            // ignore whitespace and control key
+            if c.is_whitespace() || matches!(c, '\r' | '\t') {
                 self.start = self.current;
                 continue;
             }
@@ -262,9 +293,17 @@ impl Tokenizer {
                 '"' => {
                     let mut has_terminated = false;
                     while let Some(c) = self.advance() {
-                        if c == '"' {
-                            has_terminated = true;
-                            break;
+                        match c {
+                            '"' => {
+                                has_terminated = true;
+                                break;
+                            }
+                            '\n' => {
+                                self.line_number += 1;
+                            }
+                            _ => {
+                                continue;
+                            }
                         }
                     }
                     if !has_terminated {
@@ -343,6 +382,7 @@ impl Tokenizer {
         (tokens, exit_code)
     }
 
+    /// is end of the source
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }

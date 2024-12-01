@@ -6,6 +6,8 @@ edition="2021"
 rust-version="1.80"
 
 [dependencies]
-anyhow="1.0.68"     # error handling
-log="0.4.22"        # logging
-env_logger="0.11.0" # logging
+anyhow="1.0.68"                     # error handling
+log="0.4.22"                        # logging
+env_logger="0.11.0"                 # logging
+lox_macro={path="./libs/lox_macro"}
+thiserror = "2.0.3"
