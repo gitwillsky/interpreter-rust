@@ -65,25 +65,25 @@ impl ExprVisitor for Interpreter {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Boolean(left > right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be numbers."),
             },
             TokenType::GreaterEqual => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Boolean(left >= right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be numbers."),
             },
             TokenType::Less => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Boolean(left < right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be numbers."),
             },
             TokenType::LessEqual => match (left, right) {
                 (Literal::Number(left), Literal::Number(right)) => {
                     Ok(Literal::Boolean(left <= right))
                 }
-                _ => todo!(),
+                _ => bail!("Operand must be numbers."),
             },
             TokenType::EqualEqual => Ok(Literal::Boolean(left.is_equal(&right))),
             TokenType::BangEqual => Ok(Literal::Boolean(!left.is_equal(&right))),
