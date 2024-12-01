@@ -16,7 +16,11 @@ impl Interpreter {
 
     pub fn interpret(&self, expr: &ExprEnum) {
         let value = self.evaluate(expr);
-        println!("{value:?}");
+        if let Literal::Nil = value {
+            println!("nil");
+        } else {
+            println!("{}", value.to_string());
+        }
     }
 }
 
