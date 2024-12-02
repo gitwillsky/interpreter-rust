@@ -158,7 +158,13 @@ impl ExprVisitor for Interpreter {
 
     fn visit_variable(&mut self, expr: &Variable) -> Self::Output {
         let value = self.environment.get(&expr.name.lexeme);
-        Ok(value.unwrap_or(&Literal::Nil).clone())
+        match value {
+            Some(v) => Ok(v.clone()),
+            None => bail!(RuntimeError::ParseError(
+                expr.name.clone(),
+                format!("Undefined variable '{}'", expr.name.lexeme)
+            )),
+        }
     }
 
     fn visit_assignment(&mut self, expr: &Assignment) -> Self::Output {
