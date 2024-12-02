@@ -87,12 +87,20 @@ fn main() {
             }
             let mut parser = Parser::new(tokens);
             let statements = parser.parse();
-            let mut interpreter = Interpreter::new();
-            match interpreter.interpret(&statements) {
-                Ok(_) => (),
+            match statements {
+                Ok(s) => {
+                    let mut interpreter = Interpreter::new();
+                    match interpreter.interpret(&s) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            error!("{}", e);
+                            exit(70);
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("{}", e);
-                    exit(70);
+                    exit(65)
                 }
             }
         }

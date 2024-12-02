@@ -106,19 +106,20 @@ impl Parser {
  * primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
  */
 impl Parser {
-    pub fn parse(&mut self) -> Vec<StmtEnum> {
+    pub fn parse(&mut self) -> Result<Vec<StmtEnum>> {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
-            match self.declaration() {
-                Ok(stmt) => statements.push(stmt),
-                Err(_) => {
-                    self.synchronize();
-                }
-            }
+            statements.push(self.declaration()?);
+            // match self.declaration() {
+            //     Ok(stmt) => statements.push(stmt),
+            //     Err(_) => {
+            //         self.synchronize();
+            //     }
+            // }
         }
 
-        statements
+        Ok(statements)
     }
 
     fn declaration(&mut self) -> Result<StmtEnum> {
