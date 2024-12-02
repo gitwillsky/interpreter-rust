@@ -116,8 +116,8 @@ pub enum Literal {
     Nil,
 }
 
-impl ToString for Literal {
-    fn to_string(&self) -> String {
+impl Literal {
+    pub fn to_string(&self) -> String {
         match self {
             Literal::String(s) => s.clone(),
             Literal::Number(n) => {
@@ -129,6 +129,17 @@ impl ToString for Literal {
             }
             Literal::Boolean(b) => b.to_string(),
             Literal::Nil => "null".into(),
+        }
+    }
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::String(s) => write!(f, "{s}"),
+            Literal::Number(n) => write!(f, "{n}"),
+            Literal::Boolean(b) => write!(f, "{b}"),
+            Literal::Nil => write!(f, "nil"),
         }
     }
 }

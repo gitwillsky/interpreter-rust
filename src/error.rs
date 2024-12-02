@@ -6,4 +6,6 @@ use crate::lex::Token;
 pub enum RuntimeError {
     #[error("{1}\n[line {num}]", num = .0.line_number)]
     ParseError(Token, String),
+    #[error("{0}")]
+    AssignmentError(String),
 }

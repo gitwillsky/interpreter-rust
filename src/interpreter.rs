@@ -1,30 +1,38 @@
 use crate::{
+    environment::Environment,
     error::RuntimeError,
-    expr::{Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral, Unary},
+    expr::{
+        Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral, Unary,
+        Variable,
+    },
     lex::{Literal, TokenType},
-    stmt::{Expression, Print, Stmt, StmtEnum, StmtVisitor},
+    stmt::{Expression, Print, Stmt, StmtEnum, StmtVisitor, VarDecl},
 };
 use anyhow::{bail, Result};
 
-pub struct Interpreter {}
+pub struct Interpreter {
+    environment: Environment,
+}
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            environment: Environment::new(),
+        }
     }
 
-    pub fn interpret(&self, statements: &[StmtEnum]) -> Result<()> {
+    pub fn interpret(&mut self, statements: &[StmtEnum]) -> Result<()> {
         for stmt in statements {
             self.execute(stmt)?;
         }
         Ok(())
     }
 
-    pub fn evaluate(&self, expr: &ExprEnum) -> Result<Literal> {
+    pub fn evaluate(&mut self, expr: &ExprEnum) -> Result<Literal> {
         expr.accept(self)
     }
 
-    fn execute(&self, stmt: &dyn Stmt) -> Result<()> {
+    fn execute(&mut self, stmt: &dyn Stmt) -> Result<()> {
         stmt.accept(self)
     }
 }
@@ -32,7 +40,7 @@ impl Interpreter {
 impl ExprVisitor for Interpreter {
     type Output = Result<Literal>;
 
-    fn visit_binary(&self, expr: &Binary) -> Self::Output {
+    fn visit_binary(&mut self, expr: &Binary) -> Self::Output {
         let right = self.evaluate(expr.right.as_ref())?;
         let left = self.evaluate(expr.left.as_ref())?;
 
@@ -121,15 +129,15 @@ impl ExprVisitor for Interpreter {
         }
     }
 
-    fn visit_grouping(&self, expr: &Grouping) -> Self::Output {
+    fn visit_grouping(&mut self, expr: &Grouping) -> Self::Output {
         self.evaluate(expr.expression.as_ref())
     }
 
-    fn visit_literal(&self, expr: &ExprLiteral) -> Self::Output {
+    fn visit_literal(&mut self, expr: &ExprLiteral) -> Self::Output {
         Ok(expr.value.clone())
     }
 
-    fn visit_unary(&self, expr: &Unary) -> Self::Output {
+    fn visit_unary(&mut self, expr: &Unary) -> Self::Output {
         let right = self.evaluate(expr.right.as_ref())?;
 
         match expr.operator.token_type {
@@ -147,21 +155,49 @@ impl ExprVisitor for Interpreter {
             )),
         }
     }
+
+    fn visit_variable(&mut self, expr: &Variable) -> Self::Output {
+        let value = self.environment.get(&expr.name.lexeme);
+        Ok(value.unwrap_or(&Literal::Nil).clone())
+    }
+
+    fn visit_assignment(&mut self, expr: &Assignment) -> Self::Output {
+        let name = &expr.name;
+        let value = self.evaluate(&expr.value)?;
+        self.environment
+            .assign(name.lexeme.clone(), value.clone())
+            .map_err(|e| RuntimeError::ParseError(name.clone(), e.to_string()))?;
+        Ok(value)
+    }
 }
 
 impl StmtVisitor for Interpreter {
-    fn visit_expression(&self, stmt: &Expression) -> Result<()> {
+    fn visit_expression(&mut self, stmt: &Expression) -> Result<()> {
         self.evaluate(stmt.expression.as_ref())?;
         Ok(())
     }
 
-    fn visit_print(&self, stmt: &Print) -> Result<()> {
+    fn visit_print(&mut self, stmt: &Print) -> Result<()> {
         let value = self.evaluate(stmt.expression.as_ref())?;
+        println!("{value}");
+        Ok(())
+    }
+
+    fn visit_var_decl(&mut self, stmt: &VarDecl) -> Result<()> {
+        let value = stmt
+            .initializer
+            .as_ref()
+            .map(|expr| self.evaluate(expr))
+            .transpose()?;
+
         match value {
-            Literal::Nil => println!("nil"),
-            Literal::String(s) => println!("{s}"),
-            Literal::Number(n) => println!("{n}"),
-            Literal::Boolean(b) => println!("{b}"),
+            Some(value) => self.environment.define(stmt.name.lexeme.clone(), value),
+            None =>
+            // 允许定义一个未初始化的变量
+            {
+                self.environment
+                    .define(stmt.name.lexeme.clone(), Literal::Nil)
+            }
         }
         Ok(())
     }

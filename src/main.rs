@@ -66,12 +66,7 @@ fn main() {
                     let interpreter = Interpreter::new();
                     let result = interpreter.evaluate(&expr);
                     match result {
-                        Ok(result) => match result {
-                            LexLiteral::Nil => println!("nil"),
-                            LexLiteral::String(s) => println!("{}", s),
-                            LexLiteral::Number(n) => println!("{}", n),
-                            LexLiteral::Boolean(b) => println!("{}", b),
-                        },
+                        Ok(literal) => println!("{literal}"),
                         Err(e) => {
                             error!("{}", e);
                             exit(70);
@@ -92,20 +87,12 @@ fn main() {
             }
             let mut parser = Parser::new(tokens);
             let statements = parser.parse();
-            match statements {
-                Ok(statements) => {
-                    let interpreter = Interpreter::new();
-                    match interpreter.interpret(&statements) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            error!("{}", e);
-                            exit(70);
-                        }
-                    }
-                }
+            let mut interpreter = Interpreter::new();
+            match interpreter.interpret(&statements) {
+                Ok(_) => (),
                 Err(e) => {
                     error!("{}", e);
-                    exit(65);
+                    exit(70);
                 }
             }
         }

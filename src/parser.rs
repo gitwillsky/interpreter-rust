@@ -1,8 +1,10 @@
+use std::borrow::Borrow;
+
 use crate::{
     error::RuntimeError,
-    expr::{Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary},
+    expr::{Assignment, Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
     lex::{Literal, Token, TokenType},
-    stmt::{Expression, Print, StmtEnum},
+    stmt::{Expression, Print, StmtEnum, VarDecl},
 };
 
 use anyhow::{bail, Result};
@@ -63,7 +65,7 @@ impl Parser {
             ))
         }
     }
-    #[allow(dead_code)]
+
     fn synchronize(&mut self) {
         self.advance();
 
@@ -90,27 +92,62 @@ impl Parser {
 }
 
 /**
- * program        → statement* EOF ;
+ * program        → declaration* EOF ;
+ * declaration    → var_decl | statement ;
+ * var_decl       → "var" IDENTIFIER ( "=" expression )? ";" ;
  * statement      → expr_stmt | print_stmt ;
  * expr_stmt      → expression ";";
  * print_stmt     → "print" expression ";";
- * expression     → equality;
+ * expression     → assignment;
+ * assignment     → IDENTIFIER "=" assignment | equality;
  * equality       → comparison ( ( "!=" | "==" ) comparison )* ;
  * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           → factor ( ( "-" | "+" ) factor )* ;
  * factor         → unary ( ( "/" | "*" ) unary )* ;
  * unary          → ( "!" | "-" ) unary | primary ;
- * primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+ * primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
  */
 impl Parser {
-    pub fn parse(&mut self) -> Result<Vec<StmtEnum>> {
+    pub fn parse(&mut self) -> Vec<StmtEnum> {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
-            statements.push(self.statement()?);
+            match self.declaration() {
+                Ok(stmt) => statements.push(stmt),
+                Err(_) => {
+                    self.synchronize();
+                }
+            }
         }
 
-        Ok(statements)
+        statements
+    }
+
+    fn declaration(&mut self) -> Result<StmtEnum> {
+        if self.match_token(TokenType::Var) {
+            self.var_decl()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn var_decl(&mut self) -> Result<StmtEnum> {
+        let name = self
+            .consume(TokenType::Identifier, "Expected variable name.")?
+            .clone();
+
+        let initializer = if self.match_token(TokenType::Equal) {
+            Some(Box::new(self.expression()?))
+        } else {
+            None
+        };
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after variable declaration.",
+        )?;
+
+        Ok(StmtEnum::VarDecl(VarDecl::new(name, initializer)))
     }
 
     fn statement(&mut self) -> Result<StmtEnum> {
@@ -134,7 +171,29 @@ impl Parser {
     }
 
     pub fn expression(&mut self) -> Result<ExprEnum> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<ExprEnum> {
+        let expr = self.equality();
+
+        if self.match_token(TokenType::Equal) {
+            let equals = self.previous().clone();
+            let value = self.assignment()?;
+
+            return match expr? {
+                ExprEnum::Variable(variable) => Ok(ExprEnum::Assignment(Assignment::new(
+                    variable.name,
+                    Box::new(value),
+                ))),
+                _ => bail!(RuntimeError::ParseError(
+                    equals.clone(),
+                    "Invalid assignment target.".into(),
+                )),
+            };
+        }
+
+        expr
     }
 
     fn equality(&mut self) -> Result<ExprEnum> {
@@ -234,6 +293,7 @@ impl Parser {
                 let expr = ExprEnum::Grouping(Grouping::new(Box::new(expr?)));
                 Ok(expr)
             }
+            TokenType::Identifier => Ok(ExprEnum::Variable(Variable::new(token.clone()))),
             _ => bail!(RuntimeError::ParseError(
                 token.clone(),
                 format!("Expected expression, got {}", token.lexeme),
