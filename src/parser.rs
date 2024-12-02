@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use crate::{
     error::RuntimeError,
     expr::{Assignment, Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},

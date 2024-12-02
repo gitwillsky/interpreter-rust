@@ -1,4 +1,6 @@
-use crate::expr::{Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal, Unary, Variable};
+use crate::expr::{
+    Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal, Unary, Variable,
+};
 use crate::lex::Literal as LexLiteral;
 
 pub struct AstPrinter {}
@@ -29,7 +31,7 @@ impl ExprVisitor for AstPrinter {
         expr.name.lexeme.clone()
     }
 
-    fn visit_assignment(&mut self, expr: &crate::expr::Assignment) -> Self::Output {
+    fn visit_assignment(&mut self, _expr: &Assignment) -> Self::Output {
         todo!()
     }
 }
