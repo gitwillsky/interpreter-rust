@@ -2,10 +2,10 @@ use crate::{
     error::RuntimeError,
     expr::{Assignment, Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
     lex::{Literal, Token, TokenType},
-    stmt::{Expression, Print, StmtEnum, VarDecl},
+    stmt::{Block, Expression, Print, StmtEnum, VarDecl},
 };
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Ok, Result};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -94,7 +94,8 @@ impl Parser {
  * program        → declaration* EOF ;
  * declaration    → var_decl | statement ;
  * var_decl       → "var" IDENTIFIER ( "=" expression )? ";" ;
- * statement      → expr_stmt | print_stmt ;
+ * statement      → expr_stmt | print_stmt | block ;
+ * block          → "{" declaration* "}" ;
  * expr_stmt      → expression ";";
  * print_stmt     → "print" expression ";";
  * expression     → assignment;
@@ -153,9 +154,20 @@ impl Parser {
     fn statement(&mut self) -> Result<StmtEnum> {
         if self.match_token(TokenType::Print) {
             self.print_stmt()
+        } else if self.match_token(TokenType::LeftBrace) {
+            self.block()
         } else {
             self.expr_stmt()
         }
+    }
+
+    fn block(&mut self) -> Result<StmtEnum> {
+        let mut statements = Vec::new();
+        while !self.check_token(TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+        self.consume(TokenType::RightBrace, "Expect '}' after block")?;
+        Ok(StmtEnum::Block(Block::new(statements)))
     }
 
     fn print_stmt(&mut self) -> Result<StmtEnum> {

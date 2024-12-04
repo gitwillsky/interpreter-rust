@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::{
     environment::Environment,
     error::RuntimeError,
@@ -6,41 +8,48 @@ use crate::{
         Variable,
     },
     lex::{Literal, TokenType},
-    stmt::{Expression, Print, Stmt, StmtEnum, StmtVisitor, VarDecl},
+    stmt::{Block, Expression, Print, Stmt, StmtEnum, StmtVisitor, VarDecl},
 };
 use anyhow::{bail, Result};
 
-pub struct Interpreter {
-    environment: Environment,
+pub struct Interpreter<'a> {
+    environment: RefCell<Environment<'a>>,
 }
 
-impl Interpreter {
+impl<'a> Interpreter<'a> {
     pub fn new() -> Self {
         Self {
-            environment: Environment::new(),
+            environment: RefCell::new(Environment::new(None)),
         }
     }
 
-    pub fn interpret(&mut self, statements: &[StmtEnum]) -> Result<()> {
+    pub fn interpret(&'a self, statements: &[StmtEnum]) -> Result<()> {
         for stmt in statements {
             self.execute(stmt)?;
         }
         Ok(())
     }
 
-    pub fn evaluate(&mut self, expr: &ExprEnum) -> Result<Literal> {
+    pub fn evaluate(&self, expr: &ExprEnum) -> Result<Literal> {
         expr.accept(self)
     }
 
-    fn execute(&mut self, stmt: &dyn Stmt) -> Result<()> {
+    fn execute(&'a self, stmt: &dyn Stmt) -> Result<()> {
         stmt.accept(self)
+    }
+
+    fn execute_block(&'a self, statements: &[StmtEnum], new_env: Environment<'a>) -> Result<()> {
+        let old_env = self.environment.replace(new_env);
+        let r = statements.iter().try_for_each(|s| self.execute(s));
+        self.environment.replace(old_env);
+        r
     }
 }
 
-impl ExprVisitor for Interpreter {
+impl<'a> ExprVisitor for Interpreter<'a> {
     type Output = Result<Literal>;
 
-    fn visit_binary(&mut self, expr: &Binary) -> Self::Output {
+    fn visit_binary(&self, expr: &Binary) -> Self::Output {
         let right = self.evaluate(expr.right.as_ref())?;
         let left = self.evaluate(expr.left.as_ref())?;
 
@@ -129,15 +138,15 @@ impl ExprVisitor for Interpreter {
         }
     }
 
-    fn visit_grouping(&mut self, expr: &Grouping) -> Self::Output {
+    fn visit_grouping(&self, expr: &Grouping) -> Self::Output {
         self.evaluate(expr.expression.as_ref())
     }
 
-    fn visit_literal(&mut self, expr: &ExprLiteral) -> Self::Output {
+    fn visit_literal(&self, expr: &ExprLiteral) -> Self::Output {
         Ok(expr.value.clone())
     }
 
-    fn visit_unary(&mut self, expr: &Unary) -> Self::Output {
+    fn visit_unary(&self, expr: &Unary) -> Self::Output {
         let right = self.evaluate(expr.right.as_ref())?;
 
         match expr.operator.token_type {
@@ -156,8 +165,8 @@ impl ExprVisitor for Interpreter {
         }
     }
 
-    fn visit_variable(&mut self, expr: &Variable) -> Self::Output {
-        let value = self.environment.get(&expr.name.lexeme);
+    fn visit_variable(&self, expr: &Variable) -> Self::Output {
+        let value = self.environment.borrow().get(&expr.name.lexeme);
         match value {
             Some(v) => Ok(v.clone()),
             None => bail!(RuntimeError::ParseError(
@@ -167,29 +176,30 @@ impl ExprVisitor for Interpreter {
         }
     }
 
-    fn visit_assignment(&mut self, expr: &Assignment) -> Self::Output {
+    fn visit_assignment(&self, expr: &Assignment) -> Self::Output {
         let name = &expr.name;
         let value = self.evaluate(&expr.value)?;
         self.environment
+            .borrow_mut()
             .assign(name.lexeme.clone(), value.clone())
             .map_err(|e| RuntimeError::ParseError(name.clone(), e.to_string()))?;
         Ok(value)
     }
 }
 
-impl StmtVisitor for Interpreter {
-    fn visit_expression(&mut self, stmt: &Expression) -> Result<()> {
+impl<'a> StmtVisitor<'a> for Interpreter<'a> {
+    fn visit_expression(&self, stmt: &Expression) -> Result<()> {
         self.evaluate(stmt.expression.as_ref())?;
         Ok(())
     }
 
-    fn visit_print(&mut self, stmt: &Print) -> Result<()> {
+    fn visit_print(&self, stmt: &Print) -> Result<()> {
         let value = self.evaluate(stmt.expression.as_ref())?;
         println!("{value}");
         Ok(())
     }
 
-    fn visit_var_decl(&mut self, stmt: &VarDecl) -> Result<()> {
+    fn visit_var_decl(&self, stmt: &VarDecl) -> Result<()> {
         let value = stmt
             .initializer
             .as_ref()
@@ -197,14 +207,26 @@ impl StmtVisitor for Interpreter {
             .transpose()?;
 
         match value {
-            Some(value) => self.environment.define(stmt.name.lexeme.clone(), value),
+            Some(value) => self
+                .environment
+                .borrow_mut()
+                .define(stmt.name.lexeme.clone(), value),
             None =>
             // 允许定义一个未初始化的变量
             {
                 self.environment
+                    .borrow_mut()
                     .define(stmt.name.lexeme.clone(), Literal::Nil)
             }
         }
         Ok(())
+    }
+
+    fn visit_block(&'a self, stmt: &Block) -> Result<()> {
+        let new_env = {
+            let env = Environment::new(Some(&self.environment));
+            env
+        };
+        self.execute_block(&stmt.statements, new_env)
     }
 }

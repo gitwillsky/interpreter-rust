@@ -1,15 +1,17 @@
 use anyhow::{bail, Ok, Result};
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use crate::lex::Literal;
 
-pub struct Environment {
+pub struct Environment<'a> {
+    enclosing: Option<&'a RefCell<Environment<'a>>>,
     values: HashMap<String, Literal>,
 }
 
-impl Environment {
-    pub fn new() -> Self {
+impl<'a> Environment<'a> {
+    pub fn new(enclosing: Option<&'a RefCell<Environment<'a>>>) -> Self {
         Self {
+            enclosing,
             values: HashMap::new(),
         }
     }
@@ -19,8 +21,12 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<&Literal> {
-        self.values.get(name)
+    pub fn get(&self, name: &str) -> Option<Literal> {
+        self.values.get(name).cloned().or_else(|| {
+            self.enclosing
+                .as_ref()
+                .and_then(|enclosing| enclosing.borrow().get(name))
+        })
     }
 
     pub fn assign(&mut self, name: String, value: Literal) -> Result<()> {
@@ -28,7 +34,10 @@ impl Environment {
             self.values.insert(name, value);
             Ok(())
         } else {
-            bail!("Undefined variable {name}.")
+            match self.enclosing.as_mut() {
+                Some(parent) => parent.borrow_mut().assign(name, value),
+                None => bail!("Undefined variable {name}"),
+            }
         }
     }
 }
