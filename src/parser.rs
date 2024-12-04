@@ -164,7 +164,7 @@ impl Parser {
     fn block(&mut self) -> Result<StmtEnum> {
         let mut statements = Vec::new();
         while !self.check_token(TokenType::RightBrace) && !self.is_at_end() {
-            statements.push(self.statement()?);
+            statements.push(self.declaration()?);
         }
         self.consume(TokenType::RightBrace, "Expect '}' after block")?;
         Ok(StmtEnum::Block(Block::new(statements)))

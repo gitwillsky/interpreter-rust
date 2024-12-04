@@ -44,7 +44,7 @@ fn main() {
             let expression = parser.expression();
             match expression {
                 Ok(expr) => {
-                    let mut ast_printer = AstPrinter::new();
+                    let ast_printer = AstPrinter::new();
                     println!("{}", ast_printer.print(&expr));
                 }
                 Err(e) => {
@@ -63,7 +63,7 @@ fn main() {
             let expression = parser.expression();
             match expression {
                 Ok(expr) => {
-                    let mut interpreter = Interpreter::new();
+                    let interpreter = Interpreter::new();
                     let result = interpreter.evaluate(&expr);
                     match result {
                         Ok(literal) => println!("{literal}"),
@@ -89,7 +89,7 @@ fn main() {
             let statements = parser.parse();
             match statements {
                 Ok(s) => {
-                    let mut interpreter = Interpreter::new();
+                    let interpreter = Interpreter::new();
                     match interpreter.interpret(&s) {
                         Ok(_) => (),
                         Err(e) => {
