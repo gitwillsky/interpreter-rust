@@ -3,15 +3,15 @@ use lox_macro::NewFunction;
 
 use crate::{expr::ExprEnum, lex::Token};
 
-pub trait StmtVisitor<'a> {
+pub trait StmtVisitor {
     fn visit_expression(&self, stmt: &Expression) -> Result<()>;
     fn visit_print(&self, stmt: &Print) -> Result<()>;
     fn visit_var_decl(&self, stmt: &VarDecl) -> Result<()>;
-    fn visit_block(&'a self, stmt: &Block) -> Result<()>;
+    fn visit_block(&mut self, stmt: &Block) -> Result<()>;
 }
 
 pub trait Stmt {
-    fn accept<'a>(&self, visitor: &'a dyn StmtVisitor<'a>) -> Result<()>;
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ pub enum StmtEnum {
 }
 
 impl Stmt for StmtEnum {
-    fn accept<'a>(&self, visitor: &'a dyn StmtVisitor<'a>) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
         match self {
             Self::Expression(stmt) => visitor.visit_expression(stmt),
             Self::Print(stmt) => visitor.visit_print(stmt),

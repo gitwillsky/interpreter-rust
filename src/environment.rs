@@ -1,15 +1,15 @@
 use anyhow::{bail, Ok, Result};
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::lex::Literal;
 
-pub struct Environment<'a> {
-    enclosing: Option<&'a RefCell<Environment<'a>>>,
+pub struct Environment {
+    enclosing: Option<Rc<RefCell<Environment>>>,
     values: HashMap<String, Literal>,
 }
 
-impl<'a> Environment<'a> {
-    pub fn new(enclosing: Option<&'a RefCell<Environment<'a>>>) -> Self {
+impl Environment {
+    pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
         Self {
             enclosing,
             values: HashMap::new(),
@@ -34,8 +34,8 @@ impl<'a> Environment<'a> {
             self.values.insert(name, value);
             Ok(())
         } else {
-            match self.enclosing.as_mut() {
-                Some(parent) => parent.borrow_mut().assign(name, value),
+            match self.enclosing {
+                Some(ref parent) => parent.borrow_mut().assign(name, value),
                 None => bail!("Undefined variable {name}"),
             }
         }

@@ -89,7 +89,7 @@ fn main() {
             let statements = parser.parse();
             match statements {
                 Ok(s) => {
-                    let interpreter = Interpreter::new();
+                    let mut interpreter = Interpreter::new();
                     match interpreter.interpret(&s) {
                         Ok(_) => (),
                         Err(e) => {

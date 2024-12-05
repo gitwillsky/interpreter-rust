@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     environment::Environment,
@@ -12,18 +12,18 @@ use crate::{
 };
 use anyhow::{bail, Result};
 
-pub struct Interpreter<'a> {
-    environment: RefCell<Environment<'a>>,
+pub struct Interpreter {
+    environment: Rc<RefCell<Environment>>,
 }
 
-impl<'a> Interpreter<'a> {
+impl Interpreter {
     pub fn new() -> Self {
         Self {
-            environment: RefCell::new(Environment::new(None)),
+            environment: Rc::new(RefCell::new(Environment::new(None))),
         }
     }
 
-    pub fn interpret(&'a self, statements: &[StmtEnum]) -> Result<()> {
+    pub fn interpret(&mut self, statements: &[StmtEnum]) -> Result<()> {
         for stmt in statements {
             self.execute(stmt)?;
         }
@@ -34,19 +34,23 @@ impl<'a> Interpreter<'a> {
         expr.accept(self)
     }
 
-    fn execute(&'a self, stmt: &dyn Stmt) -> Result<()> {
+    fn execute(&mut self, stmt: &dyn Stmt) -> Result<()> {
         stmt.accept(self)
     }
 
-    fn execute_block(&'a self, statements: &[StmtEnum], new_env: Environment<'a>) -> Result<()> {
-        let old_env = self.environment.replace(new_env);
-        let r = statements.iter().try_for_each(|s| self.execute(s));
-        self.environment.replace(old_env);
+    fn execute_block(&mut self, statements: &[StmtEnum], new_env: Environment) -> Result<()> {
+        let old_env = self.environment.clone();
+        self.environment = Rc::new(RefCell::new(new_env));
+        let r = statements.iter().try_for_each(|s| {
+            let r = s.accept(self);
+            r
+        });
+        self.environment = old_env;
         r
     }
 }
 
-impl<'a> ExprVisitor for Interpreter<'a> {
+impl ExprVisitor for Interpreter {
     type Output = Result<Literal>;
 
     fn visit_binary(&self, expr: &Binary) -> Self::Output {
@@ -187,7 +191,7 @@ impl<'a> ExprVisitor for Interpreter<'a> {
     }
 }
 
-impl<'a> StmtVisitor<'a> for Interpreter<'a> {
+impl StmtVisitor for Interpreter {
     fn visit_expression(&self, stmt: &Expression) -> Result<()> {
         self.evaluate(stmt.expression.as_ref())?;
         Ok(())
@@ -222,11 +226,53 @@ impl<'a> StmtVisitor<'a> for Interpreter<'a> {
         Ok(())
     }
 
-    fn visit_block(&'a self, stmt: &Block) -> Result<()> {
+    fn visit_block(&mut self, stmt: &Block) -> Result<()> {
         let new_env = {
-            let env = Environment::new(Some(&self.environment));
+            let env = Environment::new(Some(self.environment.clone()));
             env
         };
         self.execute_block(&stmt.statements, new_env)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{lex::Tokenizer, parser::Parser};
+
+    use super::*;
+
+    #[test]
+    fn test_nested_blocks() {
+        let source = r#"
+var quz = "global quz";
+var foo = "global foo";
+var baz = "global baz";
+{
+  var quz = "outer quz";
+  var foo = "outer foo";
+  {
+    var quz = "inner quz";
+    print quz;
+    print foo;
+    print baz;
+  }
+  print quz;
+  print foo;
+  print baz;
+}
+print quz;
+print foo;
+print baz;
+        "#;
+
+        let mut tokenizer = Tokenizer::new(source.to_string());
+        let (tokens, exit_code) = tokenizer.parse();
+        assert_eq!(exit_code, 0);
+        let mut parser = Parser::new(tokens);
+        let statements = parser.parse();
+        assert!(statements.is_ok());
+        let mut interpreter = Interpreter::new();
+        let r = interpreter.interpret(&statements.unwrap());
+        assert!(r.is_ok());
     }
 }
