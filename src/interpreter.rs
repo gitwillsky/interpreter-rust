@@ -8,7 +8,7 @@ use crate::{
         Variable,
     },
     lex::{Literal, TokenType},
-    stmt::{Block, Expression, Print, Stmt, StmtEnum, StmtVisitor, VarDecl},
+    stmt::{Block, Expression, If, Print, Stmt, StmtEnum, StmtVisitor, VarDecl},
 };
 use anyhow::{bail, Result};
 
@@ -232,6 +232,16 @@ impl StmtVisitor for Interpreter {
             env
         };
         self.execute_block(&stmt.statements, new_env)
+    }
+
+    fn visit_if(&mut self, stmt: &If) -> Result<()> {
+        let condition = self.evaluate(stmt.condition.as_ref())?;
+        if condition.is_truthy() {
+            self.execute(stmt.then_branch.as_ref())?;
+        } else if let Some(else_branch) = stmt.else_branch.as_ref() {
+            self.execute(else_branch.as_ref())?;
+        }
+        Ok(())
     }
 }
 

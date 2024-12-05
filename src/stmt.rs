@@ -8,6 +8,7 @@ pub trait StmtVisitor {
     fn visit_print(&self, stmt: &Print) -> Result<()>;
     fn visit_var_decl(&self, stmt: &VarDecl) -> Result<()>;
     fn visit_block(&mut self, stmt: &Block) -> Result<()>;
+    fn visit_if(&mut self, stmt: &If) -> Result<()>;
 }
 
 pub trait Stmt {
@@ -20,6 +21,7 @@ pub enum StmtEnum {
     Print(Print),
     VarDecl(VarDecl),
     Block(Block),
+    If(If),
 }
 
 impl Stmt for StmtEnum {
@@ -29,6 +31,7 @@ impl Stmt for StmtEnum {
             Self::Print(stmt) => visitor.visit_print(stmt),
             Self::VarDecl(stmt) => visitor.visit_var_decl(stmt),
             Self::Block(stmt) => visitor.visit_block(stmt),
+            Self::If(stmt) => visitor.visit_if(stmt),
         }
     }
 }
@@ -52,4 +55,11 @@ pub struct VarDecl {
 #[derive(NewFunction, Debug, Clone)]
 pub struct Block {
     pub statements: Vec<StmtEnum>,
+}
+
+#[derive(NewFunction, Debug, Clone)]
+pub struct If {
+    pub condition: Box<ExprEnum>,
+    pub then_branch: Box<StmtEnum>,
+    pub else_branch: Option<Box<StmtEnum>>,
 }
