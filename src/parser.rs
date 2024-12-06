@@ -154,13 +154,17 @@ impl Parser {
         let condition = if self.match_token(TokenType::Semicolon) {
             None
         } else {
-            Some(self.expression()?)
+            let expr = self.expression()?;
+            self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
+            Some(expr)
         };
 
-        let increment = if self.match_token(TokenType::Semicolon) {
+        let increment = if self.match_token(TokenType::RightParen) {
             None
         } else {
-            Some(self.expression()?)
+            let expr = self.expression()?;
+            self.consume(TokenType::RightParen, "Expected ')' after for clauses.")?;
+            Some(expr)
         };
 
         let mut body = self.statement()?;
