@@ -135,6 +135,20 @@ impl ExprVisitor for Interpreter {
             },
             TokenType::EqualEqual => Ok(Literal::Boolean(left.is_equal(&right))),
             TokenType::BangEqual => Ok(Literal::Boolean(!left.is_equal(&right))),
+            TokenType::And => {
+                if !left.is_truthy() {
+                    Ok(left)
+                } else {
+                    self.evaluate(expr.right.as_ref())
+                }
+            }
+            TokenType::Or => {
+                if left.is_truthy() {
+                    Ok(left)
+                } else {
+                    self.evaluate(expr.right.as_ref())
+                }
+            }
             _ => bail!(RuntimeError::ParseError(
                 expr.operator.clone(),
                 "Unknown operator.".into(),
