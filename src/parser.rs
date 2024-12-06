@@ -2,7 +2,7 @@ use crate::{
     error::RuntimeError,
     expr::{Assignment, Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
     lex::{Literal, Token, TokenType},
-    stmt::{Block, Expression, If, Print, StmtEnum, VarDecl},
+    stmt::{Block, Expression, If, Print, StmtEnum, VarDecl, While},
 };
 
 use anyhow::{bail, Ok, Result};
@@ -94,13 +94,17 @@ impl Parser {
  * program        → declaration* EOF ;
  * declaration    → var_decl | statement ;
  * var_decl       → "var" IDENTIFIER ( "=" expression )? ";" ;
- * statement      → expr_stmt | if_stmt | print_stmt | block ;
+ * statement      → expr_stmt | for_stmt | if_stmt | print_stmt | while_stmt | block ;
+ * for_stmt       → "for" "(" ( var_decl | expr_stmt | ";" ) expression? ";" expression? ")" statement ;
  * if_stmt        → "if" "(" expression ")" statement ( "else" statement )? ;
+ * while_stmt     → "while" "(" expression ")" statement ;
  * block          → "{" declaration* "}" ;
  * expr_stmt      → expression ";";
  * print_stmt     → "print" expression ";";
  * expression     → assignment;
- * assignment     → IDENTIFIER "=" assignment | equality;
+ * assignment     → IDENTIFIER "=" assignment | logic_or;
+ * logic_or       → logic_and ( "or" logic_and )* ;
+ * logic_and      → equality ( "and" equality )* ;
  * equality       → comparison ( ( "!=" | "==" ) comparison )* ;
  * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           → factor ( ( "-" | "+" ) factor )* ;
@@ -123,6 +127,62 @@ impl Parser {
         }
 
         Ok(statements)
+    }
+
+    fn while_stmt(&mut self) -> Result<StmtEnum> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen, "Expected ')' after condition.")?;
+        let body = self.statement()?;
+        Ok(StmtEnum::While(While::new(
+            Box::new(condition),
+            Box::new(body),
+        )))
+    }
+
+    fn for_stmt(&mut self) -> Result<StmtEnum> {
+        self.consume(TokenType::LeftParen, "Expected '(' after 'for'.")?;
+
+        let initializer = if self.match_token(TokenType::Var) {
+            Some(self.var_decl()?)
+        } else if self.match_token(TokenType::Semicolon) {
+            None
+        } else {
+            Some(self.expr_stmt()?)
+        };
+
+        let condition = if self.match_token(TokenType::Semicolon) {
+            None
+        } else {
+            Some(self.expression()?)
+        };
+
+        let increment = if self.match_token(TokenType::Semicolon) {
+            None
+        } else {
+            Some(self.expression()?)
+        };
+
+        let mut body = self.statement()?;
+        if let Some(increment) = increment {
+            body = StmtEnum::Block(Block::new(vec![
+                body,
+                StmtEnum::Expression(Expression::new(Box::new(increment))),
+            ]));
+        }
+
+        body = StmtEnum::While(While::new(
+            Box::new(
+                condition.unwrap_or(ExprEnum::Literal(ExprLiteral::new(Literal::Boolean(true)))),
+            ),
+            Box::new(body),
+        ));
+
+        if let Some(initializer) = initializer {
+            body = StmtEnum::Block(Block::new(vec![initializer, body]));
+        }
+
+        Ok(body)
     }
 
     fn declaration(&mut self) -> Result<StmtEnum> {
@@ -159,6 +219,10 @@ impl Parser {
             self.block()
         } else if self.match_token(TokenType::If) {
             self.if_stmt()
+        } else if self.match_token(TokenType::While) {
+            self.while_stmt()
+        } else if self.match_token(TokenType::For) {
+            self.for_stmt()
         } else {
             self.expr_stmt()
         }
@@ -207,7 +271,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<ExprEnum> {
-        let expr = self.equality();
+        let expr = self.logic_or();
 
         if self.match_token(TokenType::Equal) {
             let equals = self.previous().clone();
@@ -223,6 +287,38 @@ impl Parser {
                     "Invalid assignment target.".into(),
                 )),
             };
+        }
+
+        expr
+    }
+
+    fn logic_or(&mut self) -> Result<ExprEnum> {
+        let mut expr = self.logic_and();
+
+        while self.match_token(TokenType::Or) {
+            let operator = self.previous().clone();
+            let right = self.logic_and()?;
+            expr = Ok(ExprEnum::Binary(Binary::new(
+                Box::new(expr?),
+                operator,
+                Box::new(right),
+            )));
+        }
+
+        expr
+    }
+
+    fn logic_and(&mut self) -> Result<ExprEnum> {
+        let mut expr = self.equality();
+
+        while self.match_token(TokenType::And) {
+            let operator = self.previous().clone();
+            let right = self.equality()?;
+            expr = Ok(ExprEnum::Binary(Binary::new(
+                Box::new(expr?),
+                operator,
+                Box::new(right),
+            )));
         }
 
         expr

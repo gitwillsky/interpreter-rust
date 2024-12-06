@@ -1,5 +1,5 @@
 use crate::expr::{
-    Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal, Unary, Variable,
+    Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal, Logical, Unary, Variable,
 };
 use crate::lex::Literal as LexLiteral;
 
@@ -32,6 +32,10 @@ impl ExprVisitor for AstPrinter {
     }
 
     fn visit_assignment(&self, _expr: &Assignment) -> Self::Output {
+        todo!()
+    }
+
+    fn visit_logical(&self, _expr: &Logical) -> Self::Output {
         todo!()
     }
 }

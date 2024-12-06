@@ -4,11 +4,11 @@ use crate::{
     environment::Environment,
     error::RuntimeError,
     expr::{
-        Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral, Unary,
-        Variable,
+        Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral, Logical,
+        Unary, Variable,
     },
     lex::{Literal, TokenType},
-    stmt::{Block, Expression, If, Print, Stmt, StmtEnum, StmtVisitor, VarDecl},
+    stmt::{Block, Expression, If, Print, Stmt, StmtEnum, StmtVisitor, VarDecl, While},
 };
 use anyhow::{bail, Result};
 
@@ -189,6 +189,32 @@ impl ExprVisitor for Interpreter {
             .map_err(|e| RuntimeError::ParseError(name.clone(), e.to_string()))?;
         Ok(value)
     }
+
+    fn visit_logical(&self, expr: &Logical) -> Self::Output {
+        let left = self.evaluate(&expr.left)?;
+        match expr.operator.token_type {
+            TokenType::Or => {
+                if left.is_truthy() {
+                    // 短路操作
+                    return Ok(left);
+                }
+                // 返回右边的值
+                self.evaluate(&expr.right)
+            }
+            TokenType::And => {
+                if !left.is_truthy() {
+                    // 短路操作
+                    return Ok(left);
+                }
+                // 返回右边的值
+                self.evaluate(&expr.right)
+            }
+            _ => bail!(RuntimeError::ParseError(
+                expr.operator.clone(),
+                "Unknown logical operator.".into(),
+            )),
+        }
+    }
 }
 
 impl StmtVisitor for Interpreter {
@@ -240,6 +266,13 @@ impl StmtVisitor for Interpreter {
             self.execute(stmt.then_branch.as_ref())?;
         } else if let Some(else_branch) = stmt.else_branch.as_ref() {
             self.execute(else_branch.as_ref())?;
+        }
+        Ok(())
+    }
+
+    fn visit_while(&mut self, stmt: &While) -> Result<()> {
+        while self.evaluate(stmt.condition.as_ref())?.is_truthy() {
+            self.execute(stmt.body.as_ref())?;
         }
         Ok(())
     }
