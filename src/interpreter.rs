@@ -1,29 +1,49 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time};
 
 use crate::{
     environment::Environment,
     error::RuntimeError,
     expr::{
-        Assignment, Binary, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral, Logical,
-        Unary, Variable,
+        Assignment, Binary, Call, Expr, ExprEnum, ExprVisitor, Grouping, Literal as ExprLiteral,
+        Logical, Unary, Variable,
     },
+    function::{Callable, Function},
     lex::{Literal, TokenType},
     stmt::{Block, Expression, If, Print, Stmt, StmtEnum, StmtVisitor, VarDecl, While},
 };
 use anyhow::{bail, Result};
 
 pub struct Interpreter {
+    globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
+        let globals = Rc::new(RefCell::new(Environment::new(None)));
+
         Self {
-            environment: Rc::new(RefCell::new(Environment::new(None))),
+            globals: Rc::clone(&globals),
+            environment: Rc::clone(&globals),
         }
     }
 
     pub fn interpret(&mut self, statements: &[StmtEnum]) -> Result<()> {
+        self.globals.borrow_mut().define(
+            "clock".to_string(),
+            Literal::Callable(Function::new_native(
+                0,
+                Box::new(|_| {
+                    Literal::Number(
+                        time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs() as f64,
+                    )
+                }),
+            )),
+        );
+
         for stmt in statements {
             self.execute(stmt)?;
         }
@@ -227,6 +247,34 @@ impl ExprVisitor for Interpreter {
                 expr.operator.clone(),
                 "Unknown logical operator.".into(),
             )),
+        }
+    }
+
+    fn visit_call(&self, expr: &Call) -> Self::Output {
+        let callee = self.evaluate(expr.callee.as_ref())?;
+
+        if let Literal::Callable(func) = callee {
+            if func.arity() != expr.arguments.len() {
+                bail!(RuntimeError::ParseError(
+                    expr.paren.clone(),
+                    format!(
+                        "Expected {} arguments but got {}.",
+                        func.arity(),
+                        expr.arguments.len()
+                    ),
+                ));
+            }
+            let arguments = expr
+                .arguments
+                .iter()
+                .map(|e| self.evaluate(e))
+                .collect::<Result<Vec<_>>>()?;
+            func.call(self, arguments)
+        } else {
+            bail!(RuntimeError::ParseError(
+                expr.paren.clone(),
+                "Can only call functions and classes.".into(),
+            ))
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     error::RuntimeError,
-    expr::{Assignment, Binary, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
+    expr::{Assignment, Binary, Call, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
     lex::{Literal, Token, TokenType},
     stmt::{Block, Expression, If, Print, StmtEnum, VarDecl, While},
 };
@@ -109,7 +109,9 @@ impl Parser {
  * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           → factor ( ( "-" | "+" ) factor )* ;
  * factor         → unary ( ( "/" | "*" ) unary )* ;
- * unary          → ( "!" | "-" ) unary | primary ;
+ * unary          → ( "!" | "-" ) unary | call ;
+ * call           → primary ( "(" arguments? ")" )* ;
+ * arguments      → expression ( "," expression )* ;
  * primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
  */
 impl Parser {
@@ -127,6 +129,37 @@ impl Parser {
         }
 
         Ok(statements)
+    }
+
+    fn call(&mut self) -> Result<ExprEnum> {
+        let mut expr = self.primary()?;
+        while self.match_token(TokenType::LeftParen) {
+            expr = self.finish_call(expr)?;
+        }
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: ExprEnum) -> Result<ExprEnum> {
+        let mut arguments = Vec::new();
+        if !self.check_token(TokenType::RightParen) {
+            arguments.push(self.expression()?);
+            while self.match_token(TokenType::Comma) {
+                if arguments.len() >= 255 {
+                    bail!(RuntimeError::ParseError(
+                        self.peek().clone(),
+                        "Can't have more than 255 arguments.".into(),
+                    ));
+                }
+                arguments.push(self.expression()?);
+            }
+        }
+        let right_paren = self.consume(TokenType::RightParen, "Expected ')' after arguments.")?;
+
+        Ok(ExprEnum::Call(Call::new(
+            Box::new(callee),
+            right_paren.clone(),
+            arguments,
+        )))
     }
 
     fn while_stmt(&mut self) -> Result<StmtEnum> {
@@ -403,7 +436,7 @@ impl Parser {
             return Ok(ExprEnum::Unary(Unary::new(operator, Box::new(right))));
         }
 
-        self.primary()
+        self.call()
     }
 
     fn primary(&mut self) -> Result<ExprEnum> {

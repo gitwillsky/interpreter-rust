@@ -13,6 +13,7 @@ pub trait ExprVisitor {
     fn visit_variable(&self, expr: &Variable) -> Self::Output;
     fn visit_assignment(&self, expr: &Assignment) -> Self::Output;
     fn visit_logical(&self, expr: &Logical) -> Self::Output;
+    fn visit_call(&self, expr: &Call) -> Self::Output;
 }
 pub trait Expr: Debug {
     fn accept<R>(&self, visitor: &dyn ExprVisitor<Output = R>) -> R;
@@ -27,6 +28,7 @@ pub enum ExprEnum {
     Variable(Variable),
     Assignment(Assignment),
     Logical(Logical),
+    Call(Call),
 }
 
 impl Expr for ExprEnum {
@@ -39,6 +41,7 @@ impl Expr for ExprEnum {
             ExprEnum::Variable(expr) => visitor.visit_variable(expr),
             ExprEnum::Assignment(expr) => visitor.visit_assignment(expr),
             ExprEnum::Logical(expr) => visitor.visit_logical(expr),
+            ExprEnum::Call(expr) => visitor.visit_call(expr),
         }
     }
 }
@@ -82,4 +85,11 @@ pub struct Logical {
     pub left: Box<ExprEnum>,
     pub operator: Token,
     pub right: Box<ExprEnum>,
+}
+
+#[derive(NewFunction, Debug, Clone)]
+pub struct Call {
+    pub callee: Box<ExprEnum>,
+    pub paren: Token, // 保存右括号标记，用于错误信息展示
+    pub arguments: Vec<ExprEnum>,
 }
