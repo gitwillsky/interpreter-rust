@@ -3,13 +3,13 @@ use std::fs;
 use std::io::Write;
 use std::process::exit;
 
-use codecrafters_interpreter::ast_printer::AstPrinter;
-use codecrafters_interpreter::environment::Value;
-use codecrafters_interpreter::interpreter::Interpreter;
-use codecrafters_interpreter::lex::Literal;
-use codecrafters_interpreter::lex::Tokenizer;
-use codecrafters_interpreter::parser::Parser;
 use log::error;
+use lox::ast_printer::AstPrinter;
+use lox::environment::Value;
+use lox::interpreter::Interpreter;
+use lox::lex::Literal;
+use lox::lex::Tokenizer;
+use lox::parser::Parser;
 
 fn main() {
     env_logger::builder()
