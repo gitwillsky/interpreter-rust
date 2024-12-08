@@ -3,8 +3,6 @@ use std::fmt::Debug;
 
 use log::error;
 
-use crate::function::Function;
-
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenType {
     // Single character tokens
@@ -111,12 +109,11 @@ pub struct Token {
     pub line_number: usize,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
-    Callable(Function),
     Nil,
 }
 
@@ -132,7 +129,6 @@ impl Literal {
                 }
             }
             Literal::Boolean(b) => b.to_string(),
-            Literal::Callable(_) => "callable".into(),
             Literal::Nil => "null".into(),
         }
     }
@@ -144,7 +140,6 @@ impl fmt::Display for Literal {
             Literal::String(s) => write!(f, "{s}"),
             Literal::Number(n) => write!(f, "{n}"),
             Literal::Boolean(b) => write!(f, "{b}"),
-            Literal::Callable(_) => write!(f, "callable"),
             Literal::Nil => write!(f, "nil"),
         }
     }
@@ -164,7 +159,6 @@ impl Literal {
             Literal::String(_) => true,
             Literal::Number(_) => true,
             Literal::Boolean(f) => *f,
-            Literal::Callable(_) => true,
             Literal::Nil => false,
         }
     }

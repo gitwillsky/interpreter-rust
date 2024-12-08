@@ -1,11 +1,42 @@
-use anyhow::{bail, Ok, Result};
+use anyhow::{bail, Result};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::lex::Literal;
+use crate::{function::Callable, lex::Literal};
+
+#[derive(Debug, Clone)]
+pub enum Value {
+    Literal(Literal),
+    Callable(Callable),
+}
+
+impl Value {
+    pub fn as_literal(&self) -> Result<Literal> {
+        match self {
+            Self::Literal(literal) => Ok(literal.clone()),
+            _ => bail!("Value is not a literal"),
+        }
+    }
+
+    pub fn as_callable(&self) -> Result<Callable> {
+        match self {
+            Self::Callable(callable) => Ok(callable.clone()),
+            _ => bail!("Value is not a callable"),
+        }
+    }
+}
+
+impl ToString for Value {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Literal(literal) => format!("{}", literal),
+            Self::Callable(callable) => callable.to_string(),
+        }
+    }
+}
 
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
-    values: HashMap<String, Literal>,
+    values: HashMap<String, Value>,
 }
 
 impl Environment {
@@ -16,12 +47,12 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Literal) {
+    pub fn define(&mut self, name: String, value: Value) {
         // 在定义前并没有查找是否已经存在，即允许重复定义变量
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<Literal> {
+    pub fn get(&self, name: &str) -> Option<Value> {
         self.values.get(name).cloned().or_else(|| {
             self.enclosing
                 .as_ref()
@@ -29,7 +60,7 @@ impl Environment {
         })
     }
 
-    pub fn assign(&mut self, name: String, value: Literal) -> Result<()> {
+    pub fn assign(&mut self, name: String, value: Value) -> Result<()> {
         if self.values.contains_key(&name) {
             self.values.insert(name, value);
             Ok(())

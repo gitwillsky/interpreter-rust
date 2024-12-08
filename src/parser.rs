@@ -2,7 +2,7 @@ use crate::{
     error::RuntimeError,
     expr::{Assignment, Binary, Call, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
     lex::{Literal, Token, TokenType},
-    stmt::{Block, Expression, If, Print, StmtEnum, VarDecl, While},
+    stmt::{Block, Expression, FunctionDecl, If, Print, Return, StmtEnum, VarDecl, While},
 };
 
 use anyhow::{bail, Ok, Result};
@@ -92,15 +92,19 @@ impl Parser {
 
 /**
  * program        → declaration* EOF ;
- * declaration    → var_decl | statement ;
+ * declaration    → var_decl | fun_decl | statement ;
  * var_decl       → "var" IDENTIFIER ( "=" expression )? ";" ;
- * statement      → expr_stmt | for_stmt | if_stmt | print_stmt | while_stmt | block ;
+ * fun_decl       → "fun" function ;
+ * function       → IDENTIFIER "(" parameters? ")" block ;
+ * parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+ * statement      → expr_stmt | for_stmt | if_stmt | print_stmt | return_stmt | while_stmt | block ;
  * for_stmt       → "for" "(" ( var_decl | expr_stmt | ";" ) expression? ";" expression? ")" statement ;
  * if_stmt        → "if" "(" expression ")" statement ( "else" statement )? ;
  * while_stmt     → "while" "(" expression ")" statement ;
  * block          → "{" declaration* "}" ;
  * expr_stmt      → expression ";";
  * print_stmt     → "print" expression ";";
+ * return_stmt    → "return" expression? ";";
  * expression     → assignment;
  * assignment     → IDENTIFIER "=" assignment | logic_or;
  * logic_or       → logic_and ( "or" logic_and )* ;
@@ -129,6 +133,56 @@ impl Parser {
         }
 
         Ok(statements)
+    }
+
+    fn return_stmt(&mut self) -> Result<StmtEnum> {
+        let keyword = self.previous().clone();
+        let value = if !self.check_token(TokenType::Semicolon) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TokenType::Semicolon, "Expected ';' after return value.")?;
+        Ok(StmtEnum::Return(Return::new(keyword, value.map(Box::new))))
+    }
+
+    fn function(&mut self, kind: String) -> Result<StmtEnum> {
+        let name = self
+            .consume(TokenType::Identifier, format!("Expected {} name.", kind))?
+            .clone();
+        self.consume(
+            TokenType::LeftParen,
+            format!("Expected '(' after {} name.", kind),
+        )?;
+
+        let mut parameters = Vec::new();
+        if !self.check_token(TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    bail!(RuntimeError::ParseError(
+                        self.peek().clone(),
+                        "Can't have more than 255 parameters.".into(),
+                    ));
+                }
+                parameters.push(
+                    self.consume(TokenType::Identifier, "Expected parameter name.")
+                        .map(|token| token.clone())?,
+                );
+                if !self.match_token(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenType::RightParen, "Expected ')' after parameters.")?;
+        self.consume(
+            TokenType::LeftBrace,
+            format!("Expected '{{' before {} body.", kind),
+        )?;
+        Ok(StmtEnum::FunctionDecl(FunctionDecl::new(
+            name,
+            parameters,
+            self.block()?,
+        )))
     }
 
     fn call(&mut self) -> Result<ExprEnum> {
@@ -225,6 +279,8 @@ impl Parser {
     fn declaration(&mut self) -> Result<StmtEnum> {
         if self.match_token(TokenType::Var) {
             self.var_decl()
+        } else if self.match_token(TokenType::Fun) {
+            self.function("function".to_string())
         } else {
             self.statement()
         }
@@ -253,13 +309,15 @@ impl Parser {
         if self.match_token(TokenType::Print) {
             self.print_stmt()
         } else if self.match_token(TokenType::LeftBrace) {
-            self.block()
+            Ok(StmtEnum::Block(self.block()?))
         } else if self.match_token(TokenType::If) {
             self.if_stmt()
         } else if self.match_token(TokenType::While) {
             self.while_stmt()
         } else if self.match_token(TokenType::For) {
             self.for_stmt()
+        } else if self.match_token(TokenType::Return) {
+            self.return_stmt()
         } else {
             self.expr_stmt()
         }
@@ -282,13 +340,13 @@ impl Parser {
         )))
     }
 
-    fn block(&mut self) -> Result<StmtEnum> {
+    fn block(&mut self) -> Result<Block> {
         let mut statements = Vec::new();
         while !self.check_token(TokenType::RightBrace) && !self.is_at_end() {
             statements.push(self.declaration()?);
         }
         self.consume(TokenType::RightBrace, "Expect '}' after block")?;
-        Ok(StmtEnum::Block(Block::new(statements)))
+        Ok(Block::new(statements))
     }
 
     fn print_stmt(&mut self) -> Result<StmtEnum> {

@@ -4,12 +4,14 @@ use lox_macro::NewFunction;
 use crate::{expr::ExprEnum, lex::Token};
 
 pub trait StmtVisitor {
-    fn visit_expression(&self, stmt: &Expression) -> Result<()>;
-    fn visit_print(&self, stmt: &Print) -> Result<()>;
-    fn visit_var_decl(&self, stmt: &VarDecl) -> Result<()>;
+    fn visit_expression(&mut self, stmt: &Expression) -> Result<()>;
+    fn visit_print(&mut self, stmt: &Print) -> Result<()>;
+    fn visit_var_decl(&mut self, stmt: &VarDecl) -> Result<()>;
     fn visit_block(&mut self, stmt: &Block) -> Result<()>;
     fn visit_if(&mut self, stmt: &If) -> Result<()>;
     fn visit_while(&mut self, stmt: &While) -> Result<()>;
+    fn visit_function_decl(&mut self, stmt: &FunctionDecl) -> Result<()>;
+    fn visit_return(&mut self, stmt: &Return) -> Result<()>;
 }
 
 pub trait Stmt {
@@ -24,6 +26,8 @@ pub enum StmtEnum {
     Block(Block),
     If(If),
     While(While),
+    FunctionDecl(FunctionDecl),
+    Return(Return),
 }
 
 impl Stmt for StmtEnum {
@@ -35,6 +39,8 @@ impl Stmt for StmtEnum {
             Self::Block(stmt) => visitor.visit_block(stmt),
             Self::If(stmt) => visitor.visit_if(stmt),
             Self::While(stmt) => visitor.visit_while(stmt),
+            Self::FunctionDecl(stmt) => visitor.visit_function_decl(stmt),
+            Self::Return(stmt) => visitor.visit_return(stmt),
         }
     }
 }
@@ -71,4 +77,17 @@ pub struct If {
 pub struct While {
     pub condition: Box<ExprEnum>,
     pub body: Box<StmtEnum>,
+}
+
+#[derive(NewFunction, Debug, Clone)]
+pub struct FunctionDecl {
+    pub name: Token,
+    pub parameters: Vec<Token>,
+    pub body: Block,
+}
+
+#[derive(NewFunction, Debug, Clone)]
+pub struct Return {
+    pub keyword: Token,
+    pub value: Option<Box<ExprEnum>>,
 }

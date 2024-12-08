@@ -6,17 +6,17 @@ use crate::lex::{Literal as LiteralValue, Token};
 
 pub trait ExprVisitor {
     type Output;
-    fn visit_binary(&self, expr: &Binary) -> Self::Output;
-    fn visit_grouping(&self, expr: &Grouping) -> Self::Output;
-    fn visit_literal(&self, expr: &Literal) -> Self::Output;
-    fn visit_unary(&self, expr: &Unary) -> Self::Output;
-    fn visit_variable(&self, expr: &Variable) -> Self::Output;
-    fn visit_assignment(&self, expr: &Assignment) -> Self::Output;
-    fn visit_logical(&self, expr: &Logical) -> Self::Output;
-    fn visit_call(&self, expr: &Call) -> Self::Output;
+    fn visit_binary(&mut self, expr: &Binary) -> Self::Output;
+    fn visit_grouping(&mut self, expr: &Grouping) -> Self::Output;
+    fn visit_literal(&mut self, expr: &Literal) -> Self::Output;
+    fn visit_unary(&mut self, expr: &Unary) -> Self::Output;
+    fn visit_variable(&mut self, expr: &Variable) -> Self::Output;
+    fn visit_assignment(&mut self, expr: &Assignment) -> Self::Output;
+    fn visit_logical(&mut self, expr: &Logical) -> Self::Output;
+    fn visit_call(&mut self, expr: &Call) -> Self::Output;
 }
 pub trait Expr: Debug {
-    fn accept<R>(&self, visitor: &dyn ExprVisitor<Output = R>) -> R;
+    fn accept<R>(&self, visitor: &mut dyn ExprVisitor<Output = R>) -> R;
 }
 
 #[derive(Debug, Clone)]
@@ -32,7 +32,7 @@ pub enum ExprEnum {
 }
 
 impl Expr for ExprEnum {
-    fn accept<R>(&self, visitor: &dyn ExprVisitor<Output = R>) -> R {
+    fn accept<R>(&self, visitor: &mut dyn ExprVisitor<Output = R>) -> R {
         match self {
             ExprEnum::Binary(expr) => visitor.visit_binary(expr),
             ExprEnum::Grouping(expr) => visitor.visit_grouping(expr),
