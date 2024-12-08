@@ -1,11 +1,9 @@
 use crate::{
-    error::RuntimeError,
+    error::Error,
     expr::{Assignment, Binary, Call, ExprEnum, Grouping, Literal as ExprLiteral, Unary, Variable},
     lex::{Literal, Token, TokenType},
     stmt::{Block, Expression, FunctionDecl, If, Print, Return, StmtEnum, VarDecl, While},
 };
-
-use anyhow::{bail, Ok, Result};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -53,14 +51,15 @@ impl Parser {
         &self.tokens[self.current - 1]
     }
 
-    fn consume(&mut self, token_type: TokenType, message: impl Into<String>) -> Result<&Token> {
+    fn consume(
+        &mut self,
+        token_type: TokenType,
+        message: impl Into<String>,
+    ) -> Result<&Token, Error> {
         if self.check_token(token_type) {
             Ok(self.advance())
         } else {
-            bail!(RuntimeError::ParseError(
-                self.peek().clone(),
-                message.into(),
-            ))
+            return Err(Error::ParseError(self.peek().clone(), message.into()));
         }
     }
 
@@ -119,7 +118,7 @@ impl Parser {
  * primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
  */
 impl Parser {
-    pub fn parse(&mut self) -> Result<Vec<StmtEnum>> {
+    pub fn parse(&mut self) -> Result<Vec<StmtEnum>, Error> {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
@@ -135,7 +134,7 @@ impl Parser {
         Ok(statements)
     }
 
-    fn return_stmt(&mut self) -> Result<StmtEnum> {
+    fn return_stmt(&mut self) -> Result<StmtEnum, Error> {
         let keyword = self.previous().clone();
         let value = if !self.check_token(TokenType::Semicolon) {
             Some(self.expression()?)
@@ -146,7 +145,7 @@ impl Parser {
         Ok(StmtEnum::Return(Return::new(keyword, value.map(Box::new))))
     }
 
-    fn function(&mut self, kind: String) -> Result<StmtEnum> {
+    fn function(&mut self, kind: String) -> Result<StmtEnum, Error> {
         let name = self
             .consume(TokenType::Identifier, format!("Expected {} name.", kind))?
             .clone();
@@ -159,7 +158,7 @@ impl Parser {
         if !self.check_token(TokenType::RightParen) {
             loop {
                 if parameters.len() >= 255 {
-                    bail!(RuntimeError::ParseError(
+                    return Err(Error::ParseError(
                         self.peek().clone(),
                         "Can't have more than 255 parameters.".into(),
                     ));
@@ -185,7 +184,7 @@ impl Parser {
         )))
     }
 
-    fn call(&mut self) -> Result<ExprEnum> {
+    fn call(&mut self) -> Result<ExprEnum, Error> {
         let mut expr = self.primary()?;
         while self.match_token(TokenType::LeftParen) {
             expr = self.finish_call(expr)?;
@@ -193,13 +192,13 @@ impl Parser {
         Ok(expr)
     }
 
-    fn finish_call(&mut self, callee: ExprEnum) -> Result<ExprEnum> {
+    fn finish_call(&mut self, callee: ExprEnum) -> Result<ExprEnum, Error> {
         let mut arguments = Vec::new();
         if !self.check_token(TokenType::RightParen) {
             arguments.push(self.expression()?);
             while self.match_token(TokenType::Comma) {
                 if arguments.len() >= 255 {
-                    bail!(RuntimeError::ParseError(
+                    return Err(Error::ParseError(
                         self.peek().clone(),
                         "Can't have more than 255 arguments.".into(),
                     ));
@@ -216,7 +215,7 @@ impl Parser {
         )))
     }
 
-    fn while_stmt(&mut self) -> Result<StmtEnum> {
+    fn while_stmt(&mut self) -> Result<StmtEnum, Error> {
         self.consume(TokenType::LeftParen, "Expected '(' after 'while'.")?;
         let condition = self.expression()?;
         self.consume(TokenType::RightParen, "Expected ')' after condition.")?;
@@ -227,7 +226,7 @@ impl Parser {
         )))
     }
 
-    fn for_stmt(&mut self) -> Result<StmtEnum> {
+    fn for_stmt(&mut self) -> Result<StmtEnum, Error> {
         self.consume(TokenType::LeftParen, "Expected '(' after 'for'.")?;
 
         let initializer = if self.match_token(TokenType::Var) {
@@ -276,7 +275,7 @@ impl Parser {
         Ok(body)
     }
 
-    fn declaration(&mut self) -> Result<StmtEnum> {
+    fn declaration(&mut self) -> Result<StmtEnum, Error> {
         if self.match_token(TokenType::Var) {
             self.var_decl()
         } else if self.match_token(TokenType::Fun) {
@@ -286,7 +285,7 @@ impl Parser {
         }
     }
 
-    fn var_decl(&mut self) -> Result<StmtEnum> {
+    fn var_decl(&mut self) -> Result<StmtEnum, Error> {
         let name = self
             .consume(TokenType::Identifier, "Expected variable name.")?
             .clone();
@@ -305,7 +304,7 @@ impl Parser {
         Ok(StmtEnum::VarDecl(VarDecl::new(name, initializer)))
     }
 
-    fn statement(&mut self) -> Result<StmtEnum> {
+    fn statement(&mut self) -> Result<StmtEnum, Error> {
         if self.match_token(TokenType::Print) {
             self.print_stmt()
         } else if self.match_token(TokenType::LeftBrace) {
@@ -323,7 +322,7 @@ impl Parser {
         }
     }
 
-    fn if_stmt(&mut self) -> Result<StmtEnum> {
+    fn if_stmt(&mut self) -> Result<StmtEnum, Error> {
         self.consume(TokenType::LeftParen, "Expected '(' after 'if'.")?;
         let condition = self.expression()?;
         self.consume(TokenType::RightParen, "Expected ')' after condition.")?;
@@ -340,7 +339,7 @@ impl Parser {
         )))
     }
 
-    fn block(&mut self) -> Result<Block> {
+    fn block(&mut self) -> Result<Block, Error> {
         let mut statements = Vec::new();
         while !self.check_token(TokenType::RightBrace) && !self.is_at_end() {
             statements.push(self.declaration()?);
@@ -349,45 +348,45 @@ impl Parser {
         Ok(Block::new(statements))
     }
 
-    fn print_stmt(&mut self) -> Result<StmtEnum> {
+    fn print_stmt(&mut self) -> Result<StmtEnum, Error> {
         let expr = self.expression()?;
         self.consume(TokenType::Semicolon, "Expected ';' after value.")?;
         Ok(StmtEnum::Print(Print::new(Box::new(expr))))
     }
 
-    fn expr_stmt(&mut self) -> Result<StmtEnum> {
+    fn expr_stmt(&mut self) -> Result<StmtEnum, Error> {
         let expr = self.expression()?;
         self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
         Ok(StmtEnum::Expression(Expression::new(Box::new(expr))))
     }
 
-    pub fn expression(&mut self) -> Result<ExprEnum> {
+    pub fn expression(&mut self) -> Result<ExprEnum, Error> {
         self.assignment()
     }
 
-    fn assignment(&mut self) -> Result<ExprEnum> {
-        let expr = self.logic_or();
+    fn assignment(&mut self) -> Result<ExprEnum, Error> {
+        let expr = self.logic_or()?;
 
         if self.match_token(TokenType::Equal) {
             let equals = self.previous().clone();
             let value = self.assignment()?;
 
-            return match expr? {
+            return match expr {
                 ExprEnum::Variable(variable) => Ok(ExprEnum::Assignment(Assignment::new(
                     variable.name,
                     Box::new(value),
                 ))),
-                _ => bail!(RuntimeError::ParseError(
+                _ => Err(Error::ParseError(
                     equals.clone(),
                     "Invalid assignment target.".into(),
                 )),
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn logic_or(&mut self) -> Result<ExprEnum> {
+    fn logic_or(&mut self) -> Result<ExprEnum, Error> {
         let mut expr = self.logic_and();
 
         while self.match_token(TokenType::Or) {
@@ -403,23 +402,19 @@ impl Parser {
         expr
     }
 
-    fn logic_and(&mut self) -> Result<ExprEnum> {
-        let mut expr = self.equality();
+    fn logic_and(&mut self) -> Result<ExprEnum, Error> {
+        let mut expr = self.equality()?;
 
         while self.match_token(TokenType::And) {
             let operator = self.previous().clone();
             let right = self.equality()?;
-            expr = Ok(ExprEnum::Binary(Binary::new(
-                Box::new(expr?),
-                operator,
-                Box::new(right),
-            )));
+            expr = ExprEnum::Binary(Binary::new(Box::new(expr), operator, Box::new(right)));
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn equality(&mut self) -> Result<ExprEnum> {
+    fn equality(&mut self) -> Result<ExprEnum, Error> {
         let mut expr = self.comparison();
 
         while self.match_token(TokenType::EqualEqual) || self.match_token(TokenType::BangEqual) {
@@ -435,7 +430,7 @@ impl Parser {
         expr
     }
 
-    fn comparison(&mut self) -> Result<ExprEnum> {
+    fn comparison(&mut self) -> Result<ExprEnum, Error> {
         let mut expr = self.term();
 
         while self.match_token(TokenType::Greater)
@@ -455,23 +450,19 @@ impl Parser {
         expr
     }
 
-    fn term(&mut self) -> Result<ExprEnum> {
-        let mut expr = self.factor();
+    fn term(&mut self) -> Result<ExprEnum, Error> {
+        let mut expr = self.factor()?;
 
         while self.match_token(TokenType::Minus) || self.match_token(TokenType::Plus) {
             let operator = self.previous().clone();
             let right = self.factor()?;
-            expr = Ok(ExprEnum::Binary(Binary::new(
-                Box::new(expr?),
-                operator,
-                Box::new(right),
-            )));
+            expr = ExprEnum::Binary(Binary::new(Box::new(expr), operator, Box::new(right)));
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<ExprEnum> {
+    fn factor(&mut self) -> Result<ExprEnum, Error> {
         let mut expr = self.unary();
 
         while self.match_token(TokenType::Slash) || self.match_token(TokenType::Star) {
@@ -487,7 +478,7 @@ impl Parser {
         expr
     }
 
-    fn unary(&mut self) -> Result<ExprEnum> {
+    fn unary(&mut self) -> Result<ExprEnum, Error> {
         if self.match_token(TokenType::Bang) || self.match_token(TokenType::Minus) {
             let operator = self.previous().clone();
             let right = self.unary()?;
@@ -497,7 +488,7 @@ impl Parser {
         self.call()
     }
 
-    fn primary(&mut self) -> Result<ExprEnum> {
+    fn primary(&mut self) -> Result<ExprEnum, Error> {
         let token = self.advance();
 
         match token.token_type {
@@ -513,11 +504,10 @@ impl Parser {
             TokenType::LeftParen => {
                 let expr = self.expression();
                 self.consume(TokenType::RightParen, "Expected ')' after expression")?;
-                let expr = ExprEnum::Grouping(Grouping::new(Box::new(expr?)));
-                Ok(expr)
+                Ok(ExprEnum::Grouping(Grouping::new(Box::new(expr?))))
             }
             TokenType::Identifier => Ok(ExprEnum::Variable(Variable::new(token.clone()))),
-            _ => bail!(RuntimeError::ParseError(
+            _ => Err(Error::ParseError(
                 token.clone(),
                 format!("Expected expression, got {}", token.lexeme),
             )),

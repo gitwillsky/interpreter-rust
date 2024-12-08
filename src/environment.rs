@@ -1,26 +1,25 @@
-use anyhow::{bail, Result};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{function::Callable, lex::Literal};
+use crate::{error::Error, function::Callable, lex::Literal};
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Literal(Literal),
-    Callable(Callable),
+    Callable(Callable, Rc<RefCell<Environment>>),
 }
 
 impl Value {
-    pub fn as_literal(&self) -> Result<Literal> {
+    pub fn as_literal(&self) -> Result<Literal, Error> {
         match self {
             Self::Literal(literal) => Ok(literal.clone()),
-            _ => bail!("Value is not a literal"),
+            _ => Err(Error::RuntimeError("Value is not a literal".to_string())),
         }
     }
 
-    pub fn as_callable(&self) -> Result<Callable> {
+    pub fn as_callable(&self) -> Result<(Callable, Rc<RefCell<Environment>>), Error> {
         match self {
-            Self::Callable(callable) => Ok(callable.clone()),
-            _ => bail!("Value is not a callable"),
+            Self::Callable(callable, env) => Ok((callable.clone(), env.clone())),
+            _ => Err(Error::RuntimeError("Value is not a callable".to_string())),
         }
     }
 }
@@ -29,11 +28,12 @@ impl ToString for Value {
     fn to_string(&self) -> String {
         match self {
             Self::Literal(literal) => format!("{}", literal),
-            Self::Callable(callable) => callable.to_string(),
+            Self::Callable(callable, _) => callable.to_string(),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
     values: HashMap<String, Value>,
@@ -60,14 +60,14 @@ impl Environment {
         })
     }
 
-    pub fn assign(&mut self, name: String, value: Value) -> Result<()> {
+    pub fn assign(&mut self, name: String, value: Value) -> Result<(), Error> {
         if self.values.contains_key(&name) {
             self.values.insert(name, value);
             Ok(())
         } else {
             match self.enclosing {
                 Some(ref parent) => parent.borrow_mut().assign(name, value),
-                None => bail!("Undefined variable {name}"),
+                None => Err(Error::RuntimeError(format!("Undefined variable {name}"))),
             }
         }
     }

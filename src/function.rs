@@ -1,13 +1,12 @@
-use std::fmt::Debug;
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 use crate::{
     environment::{Environment, Value},
-    error::ReturnValue,
+    error::Error,
     interpreter::Interpreter,
     lex::Literal,
     stmt::FunctionDecl,
 };
-use anyhow::Result;
 use lox_macro::NewFunction;
 
 #[derive(Debug, Clone)]
@@ -18,7 +17,12 @@ pub enum Callable {
 
 pub trait CallableInterface: ToString {
     fn arity(&self) -> usize;
-    fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Value>) -> Result<Value>;
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        closure_env: Rc<RefCell<Environment>>,
+        arguments: Vec<Value>,
+    ) -> Result<Value, Error>;
 }
 
 impl CallableInterface for Callable {
@@ -29,10 +33,15 @@ impl CallableInterface for Callable {
         }
     }
 
-    fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Value>) -> Result<Value> {
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        env: Rc<RefCell<Environment>>,
+        arguments: Vec<Value>,
+    ) -> Result<Value, Error> {
         match self {
-            Callable::Function(func) => func.call(interpreter, arguments),
-            Callable::NativeFunction(func) => func.call(interpreter, arguments),
+            Callable::Function(func) => func.call(interpreter, env, arguments),
+            Callable::NativeFunction(func) => func.call(interpreter, env, arguments),
         }
     }
 }
@@ -56,17 +65,22 @@ impl CallableInterface for Function {
         self.declaration.parameters.len()
     }
 
-    fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Value>) -> Result<Value> {
-        let mut env = Environment::new(Some(interpreter.environment.clone()));
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        closure_env: Rc<RefCell<Environment>>,
+        arguments: Vec<Value>,
+    ) -> Result<Value, Error> {
+        let mut env = Environment::new(Some(closure_env));
         for (param, argument) in self.declaration.parameters.iter().zip(arguments) {
             env.define(param.lexeme.clone(), argument);
         }
         let result = interpreter.execute_block(&self.declaration.body, env);
         match result {
             Ok(_) => Ok(Value::Literal(Literal::Nil)),
-            Err(e) => match e.downcast_ref::<ReturnValue>() {
-                Some(value) => Ok(value.0.clone()),
-                None => Err(e),
+            Err(e) => match e {
+                Error::ReturnValue(value) => Ok(value.clone()),
+                _ => Err(e),
             },
         }
     }
@@ -82,7 +96,7 @@ impl ToString for Function {
 pub struct NativeFunction {
     pub name: String,
     pub arity: usize,
-    pub func: fn(Vec<Value>) -> Result<Value>,
+    pub func: fn(Vec<Value>) -> Result<Value, Error>,
 }
 
 impl CallableInterface for NativeFunction {
@@ -90,7 +104,12 @@ impl CallableInterface for NativeFunction {
         self.arity
     }
 
-    fn call(&self, _interpreter: &mut Interpreter, arguments: Vec<Value>) -> Result<Value> {
+    fn call(
+        &self,
+        _interpreter: &mut Interpreter,
+        _closure_env: Rc<RefCell<Environment>>,
+        arguments: Vec<Value>,
+    ) -> Result<Value, Error> {
         (self.func)(arguments)
     }
 }

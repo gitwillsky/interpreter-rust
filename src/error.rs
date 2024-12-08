@@ -1,26 +1,33 @@
 use std::{
-    error::Error,
+    error::Error as StdError,
     fmt::{self, Display},
 };
-use thiserror::Error as ThisError;
 
 use crate::{environment::Value, lex::Token};
 
-#[derive(Debug, ThisError)]
-pub enum RuntimeError {
-    #[error("[line {num}] [lexeme {lex}] {msg}", num = .0.line_number, lex = .0.lexeme, msg = .1)]
+#[derive(Debug)]
+pub enum Error {
+    InternalError(String),
     ParseError(Token, String),
-    #[error("{0}")]
     AssignmentError(String),
+    RuntimeError(String),
+    ReturnValue(Value),
 }
 
-#[derive(Debug)]
-pub struct ReturnValue(pub Value);
-
-impl Display for ReturnValue {
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0.to_string())
+        match self {
+            Self::InternalError(msg) => write!(f, "{}", msg),
+            Self::ParseError(token, msg) => write!(
+                f,
+                "[line {}] [lexeme {}] {}",
+                token.line_number, token.lexeme, msg
+            ),
+            Self::AssignmentError(msg) => write!(f, "{}", msg),
+            Self::RuntimeError(msg) => write!(f, "{}", msg),
+            Self::ReturnValue(value) => write!(f, "{}", value.to_string()),
+        }
     }
 }
 
-impl Error for ReturnValue {}
+impl StdError for Error {}

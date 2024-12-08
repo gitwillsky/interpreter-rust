@@ -1,21 +1,21 @@
-use anyhow::Result;
 use lox_macro::NewFunction;
 
 use crate::{expr::ExprEnum, lex::Token};
 
 pub trait StmtVisitor {
-    fn visit_expression(&mut self, stmt: &Expression) -> Result<()>;
-    fn visit_print(&mut self, stmt: &Print) -> Result<()>;
-    fn visit_var_decl(&mut self, stmt: &VarDecl) -> Result<()>;
-    fn visit_block(&mut self, stmt: &Block) -> Result<()>;
-    fn visit_if(&mut self, stmt: &If) -> Result<()>;
-    fn visit_while(&mut self, stmt: &While) -> Result<()>;
-    fn visit_function_decl(&mut self, stmt: &FunctionDecl) -> Result<()>;
-    fn visit_return(&mut self, stmt: &Return) -> Result<()>;
+    type Output;
+    fn visit_expression(&mut self, stmt: &Expression) -> Self::Output;
+    fn visit_print(&mut self, stmt: &Print) -> Self::Output;
+    fn visit_var_decl(&mut self, stmt: &VarDecl) -> Self::Output;
+    fn visit_block(&mut self, stmt: &Block) -> Self::Output;
+    fn visit_if(&mut self, stmt: &If) -> Self::Output;
+    fn visit_while(&mut self, stmt: &While) -> Self::Output;
+    fn visit_function_decl(&mut self, stmt: &FunctionDecl) -> Self::Output;
+    fn visit_return(&mut self, stmt: &Return) -> Self::Output;
 }
 
 pub trait Stmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()>;
+    fn accept<R>(&self, visitor: &mut dyn StmtVisitor<Output = R>) -> R;
 }
 
 #[derive(Debug, Clone)]
@@ -31,7 +31,7 @@ pub enum StmtEnum {
 }
 
 impl Stmt for StmtEnum {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept<R>(&self, visitor: &mut dyn StmtVisitor<Output = R>) -> R {
         match self {
             Self::Expression(stmt) => visitor.visit_expression(stmt),
             Self::Print(stmt) => visitor.visit_print(stmt),
