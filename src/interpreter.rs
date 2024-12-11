@@ -16,6 +16,7 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub struct Interpreter {
     globals: Rc<RefCell<Environment>>,
     pub environment: Rc<RefCell<Environment>>,

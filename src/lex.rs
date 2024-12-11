@@ -109,7 +109,7 @@ pub struct Token {
     pub line_number: usize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Literal {
     String(String),
     Number(f64),

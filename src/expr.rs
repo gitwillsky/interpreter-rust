@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use lox_macro::NewFunction;
+use lox_macro::New;
 
 use crate::lex::{Literal as LiteralValue, Token};
 
@@ -46,48 +46,48 @@ impl Expr for ExprEnum {
     }
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Assignment {
     pub name: Token,
     pub value: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Binary {
     pub left: Box<ExprEnum>,
     pub operator: Token,
     pub right: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Grouping {
     pub expression: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Literal {
     pub value: LiteralValue,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Unary {
     pub operator: Token,
     pub right: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Variable {
     pub name: Token,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Logical {
     pub left: Box<ExprEnum>,
     pub operator: Token,
     pub right: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Call {
     pub callee: Box<ExprEnum>,
     pub paren: Token, // 保存右括号标记，用于错误信息展示

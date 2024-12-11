@@ -7,7 +7,7 @@ use crate::{
     lex::Literal,
     stmt::FunctionDecl,
 };
-use lox_macro::NewFunction;
+use lox_macro::New;
 
 #[derive(Debug, Clone)]
 pub enum Callable {
@@ -55,7 +55,7 @@ impl ToString for Callable {
     }
 }
 
-#[derive(Debug, NewFunction, Clone)]
+#[derive(Debug, New, Clone)]
 pub struct Function {
     declaration: FunctionDecl,
 }
@@ -92,7 +92,7 @@ impl ToString for Function {
     }
 }
 
-#[derive(Debug, NewFunction, Clone)]
+#[derive(Debug, New, Clone)]
 pub struct NativeFunction {
     pub name: String,
     pub arity: usize,

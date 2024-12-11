@@ -1,4 +1,4 @@
-use lox_macro::NewFunction;
+use lox_macro::New;
 
 use crate::{expr::ExprEnum, lex::Token};
 
@@ -45,48 +45,48 @@ impl Stmt for StmtEnum {
     }
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Expression {
     pub expression: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Print {
     pub expression: Box<ExprEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct VarDecl {
     pub name: Token,
     pub initializer: Option<Box<ExprEnum>>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Block {
     pub statements: Vec<StmtEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct If {
     pub condition: Box<ExprEnum>,
     pub then_branch: Box<StmtEnum>,
     pub else_branch: Option<Box<StmtEnum>>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct While {
     pub condition: Box<ExprEnum>,
     pub body: Box<StmtEnum>,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct FunctionDecl {
     pub name: Token,
     pub parameters: Vec<Token>,
     pub body: Block,
 }
 
-#[derive(NewFunction, Debug, Clone)]
+#[derive(New, Debug, Clone)]
 pub struct Return {
     pub keyword: Token,
     pub value: Option<Box<ExprEnum>>,

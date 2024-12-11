@@ -6,4 +6,5 @@ pub mod function;
 pub mod interpreter;
 pub mod lex;
 pub mod parser;
+pub mod resolver;
 pub mod stmt;
