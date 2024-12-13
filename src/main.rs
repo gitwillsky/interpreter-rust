@@ -10,6 +10,7 @@ use lox::interpreter::Interpreter;
 use lox::lex::Literal;
 use lox::lex::Tokenizer;
 use lox::parser::Parser;
+use lox::resolver::Resolver;
 
 fn main() {
     env_logger::builder()
@@ -100,6 +101,8 @@ fn main() {
                                 .as_secs_f64(),
                         )))
                     });
+                    let mut resolver = Resolver::new(&interpreter);
+                    resolver.resolve_statements(&s)?;
                     match interpreter.interpret(&s) {
                         Ok(_) => (),
                         Err(e) => {

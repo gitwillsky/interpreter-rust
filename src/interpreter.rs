@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     environment::{Environment, Value},
@@ -8,7 +8,7 @@ use crate::{
         Logical, Unary, Variable,
     },
     function::{Callable, CallableInterface, Function, NativeFunction},
-    lex::{Literal, TokenType, Tokenizer},
+    lex::{self, Literal, TokenType, Tokenizer},
     parser::Parser,
     stmt::{
         Block, Expression, FunctionDecl, If, Print, Return, Stmt, StmtEnum, StmtVisitor, VarDecl,
@@ -17,19 +17,25 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     globals: Rc<RefCell<Environment>>,
     pub environment: Rc<RefCell<Environment>>,
+    pub locals: HashMap<&'a lex::Token, usize>,
 }
 
-impl Interpreter {
+impl<'a> Interpreter<'a> {
     pub fn new() -> Self {
         let globals = Rc::new(RefCell::new(Environment::new(None)));
 
         Self {
             globals: Rc::clone(&globals),
             environment: Rc::clone(&globals),
+            locals: HashMap::new(),
         }
+    }
+
+    pub fn resolve(&mut self, token: &'a lex::Token, depth: usize) {
+        self.locals.insert(token, depth);
     }
 
     pub fn define_globals(&mut self, source: String) -> Result<(), Error> {
@@ -93,9 +99,18 @@ impl Interpreter {
         self.environment = old_env;
         r
     }
+
+    fn lookup_variable(&self, name: &lex::Token) -> Option<Value> {
+        let var_name = &name.lexeme.clone();
+        if let Some(depth) = self.locals.get(&name) {
+            self.environment.borrow().get_at(*depth, var_name)
+        } else {
+            self.globals.borrow().get(var_name)
+        }
+    }
 }
 
-impl ExprVisitor for Interpreter {
+impl<'a> ExprVisitor for Interpreter<'a> {
     type Output = Result<Value, Error>;
 
     fn visit_binary(&mut self, expr: &Binary) -> Self::Output {
@@ -276,10 +291,19 @@ impl ExprVisitor for Interpreter {
     fn visit_assignment(&mut self, expr: &Assignment) -> Self::Output {
         let name = &expr.name;
         let value = self.evaluate(&expr.value)?;
-        self.environment
-            .borrow_mut()
-            .assign(name.lexeme.clone(), value.clone())
-            .map_err(|e| Error::ParseError(name.clone(), e.to_string()))?;
+        let distance = self.locals.get(&name);
+
+        if let Some(distance) = distance {
+            self.environment
+                .borrow_mut()
+                .assign_at(*distance, name.lexeme.clone(), value.clone())
+                .map_err(|e| Error::ParseError(name.clone(), e.to_string()))?;
+        } else {
+            self.globals
+                .borrow_mut()
+                .assign(name.lexeme.clone(), value.clone())
+                .map_err(|e| Error::ParseError(name.clone(), e.to_string()))?;
+        }
         Ok(value)
     }
 
@@ -352,7 +376,7 @@ impl ExprVisitor for Interpreter {
     }
 }
 
-impl StmtVisitor for Interpreter {
+impl<'a> StmtVisitor for Interpreter<'a> {
     type Output = Result<(), Error>;
 
     fn visit_expression(&mut self, stmt: &Expression) -> Self::Output {

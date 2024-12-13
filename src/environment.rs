@@ -33,7 +33,7 @@ impl ToString for Value {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
     values: HashMap<String, Value>,
@@ -58,6 +58,28 @@ impl Environment {
                 .as_ref()
                 .and_then(|enclosing| enclosing.borrow().get(name))
         })
+    }
+
+    pub fn get_at(&self, distance: usize, name: &str) -> Option<Value> {
+        if distance == 0 {
+            return self.values.get(name).cloned();
+        }
+        self.enclosing
+            .as_ref()
+            .and_then(|enclosing| enclosing.borrow().get_at(distance - 1, name))
+    }
+
+    pub fn assign_at(&mut self, distance: usize, name: String, value: Value) -> Result<(), Error> {
+        if distance == 0 {
+            self.values.insert(name, value);
+            Ok(())
+        } else {
+            self.enclosing
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .assign_at(distance - 1, name, value)
+        }
     }
 
     pub fn assign(&mut self, name: String, value: Value) -> Result<(), Error> {

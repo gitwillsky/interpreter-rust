@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use lox_macro::New;
-
 use crate::{
     error::Error,
     expr::{self, Expr, ExprVisitor},
@@ -11,13 +9,16 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Resolver {
-    interpreter: Interpreter,
+pub struct Resolver<'a> {
+    interpreter: &'a mut Interpreter<'a>,
+    // 用 Vec 来记录当前作用域的栈，栈中的每个元素代表一个块作用域的 Map
+    // 作用域栈只用于局部作用域，解析器不会跟踪全局作用域，因为它们会在运行时动态改变
+    // true/false 表示是否已定义
     scopes: Vec<HashMap<String, bool>>,
 }
 
-impl Resolver {
-    pub fn new(interpreter: Interpreter) -> Self {
+impl<'a> Resolver<'a> {
+    pub fn new(interpreter: &'a mut Interpreter<'a>) -> Self {
         Self {
             interpreter,
             scopes: vec![],
@@ -31,10 +32,7 @@ impl Resolver {
         Ok(())
     }
 
-    fn resolve_expr(&mut self, expr: &expr::ExprEnum) -> Result<(), Error> {
-        expr.accept(self)
-    }
-
+    // 开始一个新的块作用域
     fn begin_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
@@ -55,10 +53,11 @@ impl Resolver {
         }
     }
 
-    fn resolve_local(&mut self, name: &lex::Token) -> Result<(), Error> {
+    fn resolve_local(&mut self, name: &'a lex::Token) -> Result<(), Error> {
         for (i, scope) in self.scopes.iter().enumerate().rev() {
             if scope.contains_key(&name.lexeme) {
                 self.interpreter.resolve(name, i);
+                return Ok(());
             }
         }
         Ok(())
@@ -76,28 +75,31 @@ impl Resolver {
     }
 }
 
-impl ExprVisitor for Resolver {
+impl<'a> ExprVisitor for Resolver<'a> {
     type Output = Result<(), Error>;
 
     fn visit_binary(&mut self, expr: &expr::Binary) -> Self::Output {
-        todo!()
+        expr.left.accept(self)?;
+        expr.right.accept(self)?;
+        Ok(())
     }
 
     fn visit_grouping(&mut self, expr: &expr::Grouping) -> Self::Output {
-        todo!()
+        expr.expression.accept(self)?;
+        Ok(())
     }
 
-    fn visit_literal(&mut self, expr: &expr::Literal) -> Self::Output {
-        todo!()
+    fn visit_literal(&mut self, _expr: &expr::Literal) -> Self::Output {
+        Ok(())
     }
 
     fn visit_unary(&mut self, expr: &expr::Unary) -> Self::Output {
-        todo!()
+        expr.right.accept(self)?;
+        Ok(())
     }
 
     fn visit_variable(&mut self, expr: &expr::Variable) -> Self::Output {
         if let Some(scope) = self.scopes.last() {
-            // 判断已经在当前作用域声明但未定义
             if let Some(is_defined) = scope.get(&expr.name.lexeme) {
                 if !is_defined {
                     return Err(Error::ParseError(
@@ -113,35 +115,43 @@ impl ExprVisitor for Resolver {
     }
 
     fn visit_assignment(&mut self, expr: &expr::Assignment) -> Self::Output {
-        self.resolve_expr(&expr.value)?;
+        expr.value.accept(self)?;
         self.resolve_local(&expr.name)?;
         Ok(())
     }
 
     fn visit_logical(&mut self, expr: &expr::Logical) -> Self::Output {
-        todo!()
+        expr.left.accept(self)?;
+        expr.right.accept(self)?;
+        Ok(())
     }
 
     fn visit_call(&mut self, expr: &expr::Call) -> Self::Output {
-        todo!()
+        expr.callee.accept(self)?;
+        for arg in &expr.arguments {
+            arg.accept(self)?;
+        }
+        Ok(())
     }
 }
 
-impl StmtVisitor for Resolver {
+impl<'a> StmtVisitor for Resolver<'a> {
     type Output = Result<(), Error>;
 
     fn visit_expression(&mut self, stmt: &stmt::Expression) -> Self::Output {
-        todo!()
+        stmt.expression.accept(self)?;
+        Ok(())
     }
 
     fn visit_print(&mut self, stmt: &stmt::Print) -> Self::Output {
-        todo!()
+        stmt.expression.accept(self)?;
+        Ok(())
     }
 
     fn visit_var_decl(&mut self, stmt: &stmt::VarDecl) -> Self::Output {
         self.declare(&stmt.name);
-        if stmt.initializer.is_some() {
-            self.resolve_expr(&stmt.initializer.as_ref().unwrap())?;
+        if let Some(initializer) = &stmt.initializer {
+            initializer.accept(self)?;
         }
         self.define(&stmt.name);
         Ok(())
@@ -155,11 +165,18 @@ impl StmtVisitor for Resolver {
     }
 
     fn visit_if(&mut self, stmt: &stmt::If) -> Self::Output {
-        todo!()
+        stmt.condition.accept(self)?;
+        stmt.then_branch.accept(self)?;
+        if let Some(else_branch) = &stmt.else_branch {
+            else_branch.accept(self)?;
+        }
+        Ok(())
     }
 
     fn visit_while(&mut self, stmt: &stmt::While) -> Self::Output {
-        todo!()
+        stmt.condition.accept(self)?;
+        stmt.body.accept(self)?;
+        Ok(())
     }
 
     fn visit_function_decl(&mut self, stmt: &stmt::FunctionDecl) -> Self::Output {
@@ -170,6 +187,9 @@ impl StmtVisitor for Resolver {
     }
 
     fn visit_return(&mut self, stmt: &stmt::Return) -> Self::Output {
-        todo!()
+        if let Some(value) = &stmt.value {
+            value.accept(self)?;
+        }
+        Ok(())
     }
 }

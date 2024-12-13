@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use log::error;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub enum TokenType {
     // Single character tokens
     LeftParen,
@@ -101,7 +101,7 @@ impl ToString for TokenType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -109,12 +109,25 @@ pub struct Token {
     pub line_number: usize,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
     Nil,
+}
+
+impl Eq for Literal {}
+
+impl std::hash::Hash for Literal {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Literal::String(s) => s.hash(state),
+            Literal::Number(n) => n.to_bits().hash(state),
+            Literal::Boolean(b) => b.hash(state),
+            Literal::Nil => 0.hash(state),
+        }
+    }
 }
 
 impl Literal {
